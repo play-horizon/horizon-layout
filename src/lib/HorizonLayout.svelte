@@ -300,9 +300,17 @@
 	// If it changes during a drag operation, the drag is cancelled
 	// and the new config is applied immediately.
 	$effect(() => {
-		const inputConfig = config;
+		// Validation-time inputs are read on every run
+		// so that changing them revalidates the config.
+		void minWidthRatio;
+		void minHeightRatio;
+		void skipValidation;
+		void views;
 
-		if (untrack(() => internalConfig && areConfigsEquivalent(internalConfig, inputConfig))) {
+		const external = $state.snapshot(config);
+		const internal = untrack(() => internalConfig && $state.snapshot(internalConfig));
+
+		if (internal && areConfigsEquivalent(internal, external)) {
 			return;
 		}
 
@@ -310,19 +318,16 @@
 			dragData = null;
 		}
 
-		internalConfig = createInternalConfig(inputConfig);
+		internalConfig = createInternalConfig(external);
 	});
 
 	// Propagate internalConfig changes → external config binding.
 	// Skipped while a drag is in progress to avoid propagating temporary intermediate states.
 	$effect(() => {
 		if (dragData || !internalConfig) return;
-		if (
-			!areConfigsEquivalent(
-				internalConfig,
-				untrack(() => config)
-			)
-		) {
+
+		const external = untrack(() => $state.snapshot(config));
+		if (!areConfigsEquivalent(internalConfig, external)) {
 			config = cloneConfig(internalConfig);
 		}
 	});
@@ -406,11 +411,11 @@
 		const directionAxis = direction === 'left' || direction === 'right' ? 'horizontal' : 'vertical';
 		const isDirectionLeftOrUp = direction === 'left' || direction === 'up';
 
-		const edgeTabGroup = (root: NodeConfig, direction: Direction): TabGroupConfig => {
+		const edgeTabGroup = (root: NodeConfig): TabGroupConfig => {
 			if (nodeConfigType(root) === 'tabGroup') return root as TabGroupConfig;
 			const split = root as SplitConfig;
 			const index = isDirectionLeftOrUp ? split.views.length - 1 : 0;
-			return edgeTabGroup(split.views[index]!, direction);
+			return edgeTabGroup(split.views[index]!);
 		};
 
 		const findClosestTabGroupAndMoveTab = (child: NodeConfig) => {
@@ -427,10 +432,7 @@
 				return findClosestTabGroupAndMoveTab(parentData.parent);
 			}
 
-			moveActiveTabToTabGroup(
-				tabGroup,
-				edgeTabGroup(parentData.parent.views[targetIndex]!, direction)
-			);
+			moveActiveTabToTabGroup(tabGroup, edgeTabGroup(parentData.parent.views[targetIndex]!));
 		};
 
 		findClosestTabGroupAndMoveTab(tabGroup);
@@ -629,7 +631,7 @@
 		const wanted = new Set(internalConfig.popouts ?? []);
 
 		// Close any popouts that are no longer in the config.
-		for (const id of [...popouts.keys()]) {
+		for (const id of popouts.keys()) {
 			if (!wanted.has(id)) cleanupPopout(id, true);
 		}
 
@@ -651,14 +653,14 @@
 
 	// Close all popout windows when the base window closes or the component is unmounted.
 	function closeAllPopouts() {
-		for (const id of [...popouts.keys()]) {
+		for (const id of popouts.keys()) {
 			cleanupPopout(id, true);
 		}
 	}
 
 	function retryPendingPopouts() {
 		const now = Date.now();
-		for (const [id, since] of [...pendingPopouts.entries()]) {
+		for (const [id, since] of pendingPopouts.entries()) {
 			if (now - since >= POPOUT_BLOCKED_TIMEOUT_MS) {
 				pendingPopouts.delete(id);
 				handleBlockedPopout(id);
