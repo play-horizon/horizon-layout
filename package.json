@@ -1,9 +1,10 @@
 {
 	"name": "horizon-layout",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"keywords": [
 		"svelte"
 	],
+	"homepage": "https://play-horizon.github.io/horizon-layout",
 	"license": "MIT",
 	"repository": {
 		"type": "git",
