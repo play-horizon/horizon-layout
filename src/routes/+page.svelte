@@ -696,80 +696,86 @@
 
 <div class="app {themeClassMap[mainTheme]}">
 	<aside class="sidebar">
-		<header class="sidebar__brand">
-			<div>
-				<h1>horizon-layout</h1>
-				<p>demo playground</p>
-			</div>
-		</header>
+		<div class="sidebar__column">
+			<header class="sidebar__brand">
+				<div>
+					<h1>horizon-layout</h1>
+					<p>demo playground</p>
+				</div>
+			</header>
 
-		<section class="sidebar__section">
-			<h2>Pages</h2>
-			<ul class="page-list">
-				{#each pages as page (page.id)}
-					<li>
-						<span class="page-list__title">{page.title}</span>
-						{#if page.persistent}
-							<span class="page-list__lock" title="Locked">locked</span>
-						{:else}
-							<button
-								class="ctl page-list__remove"
-								onclick={() => removePage(page.id)}
-								title="Remove"
-							>
-								✕
-							</button>
-						{/if}
-					</li>
-				{/each}
-			</ul>
-			<button class="btn btn--full" onclick={addPage}>+ Add page</button>
-		</section>
+			<section class="sidebar__section">
+				<h2>Theme</h2>
+				<select
+					class="select"
+					value={mainTheme}
+					onchange={(e) => (mainTheme = (e.currentTarget as HTMLSelectElement).value)}
+				>
+					{#each themes as theme (theme.id)}
+						<option value={theme.id}>{theme.name}</option>
+					{/each}
+				</select>
+			</section>
 
-		<section class="sidebar__section">
-			<h2>Theme</h2>
-			<select
-				class="select"
-				value={mainTheme}
-				onchange={(e) => (mainTheme = (e.currentTarget as HTMLSelectElement).value)}
-			>
-				{#each themes as theme (theme.id)}
-					<option value={theme.id}>{theme.name}</option>
-				{/each}
-			</select>
-		</section>
+			<section class="sidebar__section">
+				<h2>Local storage</h2>
+				<label class="check">
+					<input
+						type="checkbox"
+						checked={persistLayout}
+						onchange={(e) => setPersist((e.currentTarget as HTMLInputElement).checked)}
+					/>
+					Save layout automatically
+				</label>
+				{#if statusMessage}<p class="sidebar__status">{statusMessage}</p>{/if}
+			</section>
+		</div>
 
-		<section class="sidebar__section">
-			<h2>Local storage</h2>
-			<label class="check">
-				<input
-					type="checkbox"
-					checked={persistLayout}
-					onchange={(e) => setPersist((e.currentTarget as HTMLInputElement).checked)}
-				/>
-				Save layout automatically
-			</label>
-			{#if statusMessage}<p class="sidebar__status">{statusMessage}</p>{/if}
-		</section>
+		<div class="sidebar__column">
+			<section class="sidebar__section">
+				<h2>Pages</h2>
+				<ul class="page-list">
+					{#each pages as page (page.id)}
+						<li>
+							<span class="page-list__title">{page.title}</span>
+							{#if page.persistent}
+								<span class="page-list__lock" title="Locked">locked</span>
+							{:else}
+								<button
+									class="ctl page-list__remove"
+									onclick={() => removePage(page.id)}
+									title="Remove"
+								>
+									✕
+								</button>
+							{/if}
+						</li>
+					{/each}
+				</ul>
+				<button class="btn btn--full" onclick={addPage}>+ Add page</button>
+			</section>
 
-		<LayoutOptions
-			{config}
-			bind:showSplitRatio
-			bind:disableResizeSplits
-			bind:disableDragAndDrop
-			bind:hideTabBar
-			bind:skipValidation
-			bind:minWidthRatio
-			bind:minHeightRatio
-			bind:maxDepth
-			bind:ratioFormat
-		/>
+			<LayoutOptions
+				{config}
+				bind:showSplitRatio
+				bind:disableResizeSplits
+				bind:disableDragAndDrop
+				bind:hideTabBar
+				bind:skipValidation
+				bind:minWidthRatio
+				bind:minHeightRatio
+				bind:maxDepth
+				bind:ratioFormat
+			/>
+		</div>
 
-		<section class="sidebar__section">
-			<h2>Keyboard controls</h2>
-			<KeyboardControlsEditor bindings={kbBindings} onChanged={onBindingChanged} />
-			<button class="btn btn--full" onclick={resetBindings}>Reset bindings</button>
-		</section>
+		<div class="sidebar__column">
+			<section class="sidebar__section">
+				<h2>Keyboard controls</h2>
+				<KeyboardControlsEditor bindings={kbBindings} onChanged={onBindingChanged} />
+				<button class="btn btn--full" onclick={resetBindings}>Reset bindings</button>
+			</section>
+		</div>
 	</aside>
 
 	<main class="layout">
@@ -800,12 +806,26 @@
 		font-family: system-ui, sans-serif;
 	}
 
+	/* Fluid root font-size: everything sized in rem scales down as the
+	   viewport shrinks (vmin so portrait/landscape behave the same),
+	   but never gets smaller than 11px or larger than 16px. */
+	:global(html) {
+		font-size: clamp(0.6875rem, 0.6rem + 0.625vmin, 1rem);
+	}
+
 	.app {
+		position: relative;
 		display: flex;
 		width: 100vw;
 		height: 100vh;
 		background: var(--hl-background);
 		color: var(--hl-foreground);
+	}
+
+	.app > .layout {
+		flex: 1;
+		min-width: 0;
+		min-height: 0;
 	}
 
 	/* ------------------------------------------------------------ sidebar */
@@ -821,6 +841,71 @@
 		border-right: 1px solid var(--hl-border);
 		background: var(--hl-card);
 		overflow-y: auto;
+	}
+
+	/* Portrait: the sidebar becomes a horizontal panel on top of the layout
+	   instead of a vertical sidebar. Declared after the base rule so the
+	   overrides win. */
+	@media (orientation: portrait) {
+		.app {
+			flex-direction: column;
+		}
+
+		/* Three fixed columns. The panel itself is capped at a fraction of
+		   the viewport height and scrolls, so it never eats the layout. */
+		.sidebar {
+			width: auto;
+			max-width: none;
+			flex-direction: row;
+			align-items: stretch;
+			flex-wrap: wrap;
+			gap: 1.25rem;
+			height: 30vh;
+			max-height: 30vh;
+			padding: 0.75rem 1rem;
+			border-right: none;
+			border-bottom: 1px solid var(--hl-border);
+			overflow: auto;
+		}
+
+		.sidebar__column {
+			flex: 1 1 0;
+			min-width: 11rem;
+			display: flex;
+			flex-direction: column;
+			gap: 1rem;
+			min-height: 0;
+			overflow-y: auto;
+			scrollbar-width: thin;
+		}
+
+		.sidebar__column + .sidebar__column {
+			border-left: 1px solid var(--hl-border);
+			padding-left: 1.25rem;
+		}
+
+		.sidebar :global(.kbd-list) {
+			columns: 2;
+			column-gap: 0.75rem;
+		}
+
+		.sidebar :global(.kbd-row) {
+			break-inside: avoid;
+		}
+
+		.sidebar__brand {
+			border-right: none;
+			gap: 0.2rem;
+		}
+
+		.sidebar__brand p {
+			display: none;
+		}
+
+		.btn--full,
+		.page-list__title {
+			width: auto;
+		}
 	}
 
 	.sidebar__brand {

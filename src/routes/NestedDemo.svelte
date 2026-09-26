@@ -3,11 +3,15 @@
 	import { SvelteMap } from 'svelte/reactivity';
 	import HorizonLayout from '$lib/HorizonLayout.svelte';
 	import { themes } from './themes.js';
-	import LayoutOptions from './LayoutOptions.svelte';
+	import InteractionOptions from './InteractionOptions.svelte';
+	import ConstraintOptions from './ConstraintOptions.svelte';
 	import { ratioFormats, type RatioFormat } from './LayoutOptions.svelte';
 </script>
 
 <script lang="ts">
+	// Like the main demo page, but responsive to *this tab's own box* rather
+	// than the viewport: the nested layout lives inside a pane that can be any
+	// size, so we use a container query instead of an orientation media query.
 	let nestedConfig: LayoutConfig = $state({
 		root: {
 			direction: 'horizontal',
@@ -66,60 +70,87 @@
 	</div>
 {/snippet}
 
-<div class="nested-demo {themeClass}">
-	<aside class="nested-sidebar">
-		<section class="nested-section">
-			<h2>Theme</h2>
-			<select
-				id="nested-theme-select"
-				class="nested-select"
-				value={nestedTheme}
-				onchange={(e) => (nestedTheme = (e.currentTarget as HTMLSelectElement).value)}
-			>
-				{#each themes as theme (theme.id)}
-					<option value={theme.id}>{theme.name}</option>
-				{/each}
-			</select>
-		</section>
-		<LayoutOptions
-			config={nestedConfig}
-			bind:showSplitRatio
-			bind:disableResizeSplits
-			bind:disableDragAndDrop
-			bind:hideTabBar
-			bind:skipValidation
-			bind:minWidthRatio
-			bind:minHeightRatio
-			bind:maxDepth
-			bind:ratioFormat
-		/>
-	</aside>
+<div class="nested-root {themeClass}">
+	<div class="nested-demo">
+		<aside class="nested-sidebar">
+			<div class="nested-column">
+				<InteractionOptions
+					bind:showSplitRatio
+					bind:disableResizeSplits
+					bind:disableDragAndDrop
+					bind:hideTabBar
+					bind:skipValidation
+					bind:ratioFormat
+				/>
+			</div>
 
-	<div class="nested-demo__layout">
-		<HorizonLayout
-			bind:config={nestedConfig}
-			views={nestedViews}
-			{showSplitRatio}
-			{disableResizeSplits}
-			{disableDragAndDrop}
-			{hideTabBar}
-			{skipValidation}
-			{minWidthRatio}
-			{minHeightRatio}
-			{maxDepth}
-			{formatRatio}
-			{formatRatioForAria}
-		/>
+			<div class="nested-column">
+				<section class="nested-section">
+					<h2>Theme</h2>
+					<select
+						id="nested-theme-select"
+						class="nested-select"
+						value={nestedTheme}
+						onchange={(e) => (nestedTheme = (e.currentTarget as HTMLSelectElement).value)}
+					>
+						{#each themes as theme (theme.id)}
+							<option value={theme.id}>{theme.name}</option>
+						{/each}
+					</select>
+				</section>
+
+				<ConstraintOptions
+					config={nestedConfig}
+					bind:minWidthRatio
+					bind:minHeightRatio
+					bind:maxDepth
+				/>
+			</div>
+		</aside>
+
+		<div class="nested-demo__layout">
+			<HorizonLayout
+				bind:config={nestedConfig}
+				views={nestedViews}
+				{showSplitRatio}
+				{disableResizeSplits}
+				{disableDragAndDrop}
+				{hideTabBar}
+				{skipValidation}
+				{minWidthRatio}
+				{minHeightRatio}
+				{maxDepth}
+				{formatRatio}
+				{formatRatioForAria}
+			/>
+		</div>
 	</div>
 </div>
 
 <style>
+	.nested-root {
+		width: 100%;
+		height: 100%;
+		/* Container for the queries below; must be an ancestor of everything
+		   the queries restyle (container queries never match an element
+		   against its own container). */
+		container-type: size;
+	}
+
 	.nested-demo {
+		position: relative;
 		width: 100%;
 		height: 100%;
 		display: flex;
 		background: var(--hl-background);
 		color: var(--hl-foreground);
+	}
+
+	.nested-demo > .nested-demo__layout {
+		flex: 1;
+		width: 100%;
+		min-width: 0;
+		min-height: 0;
 	}
 
 	.nested-sidebar {
@@ -133,6 +164,53 @@
 		border-right: 1px solid var(--hl-border);
 		background: var(--hl-card);
 		overflow-y: auto;
+	}
+
+	/* Narrow tab: become a horizontal panel on top of the layout. Driven by
+	   the container's own width, not the viewport: the vertical sidebar needs
+	   230px plus a usable layout beside it (~32rem total); below that the
+	   layout would be starved. Declared after the base rule so the overrides
+	   win. */
+	@container (max-width: 32rem) {
+		.nested-demo {
+			flex-direction: column;
+		}
+
+		.nested-sidebar {
+			width: auto;
+			max-width: none;
+			flex-direction: row;
+			align-items: stretch;
+			flex-wrap: wrap;
+			gap: 1.25rem;
+			height: 30%;
+			max-height: 30%;
+			padding: 0.75rem 1rem;
+			border-right: none;
+			border-bottom: 1px solid var(--hl-border);
+			overflow: auto;
+		}
+
+		.nested-column {
+			flex: 1 1 0;
+			min-width: 11rem;
+			display: flex;
+			flex-direction: column;
+			gap: 1rem;
+			min-height: 0;
+			overflow-y: auto;
+			scrollbar-width: thin;
+		}
+
+		.nested-column + .nested-column {
+			border-left: 1px solid var(--hl-border);
+			padding-left: 1.25rem;
+		}
+
+		.nested-section {
+			padding-bottom: 0;
+			border-bottom: none;
+		}
 	}
 
 	.nested-section {
@@ -161,7 +239,7 @@
 		color: var(--hl-foreground);
 	}
 
-	.nested-demo__layout {
+	.nested-demo .nested-demo__layout {
 		flex: 1;
 		min-width: 0;
 		min-height: 0;
