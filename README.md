@@ -1,6 +1,27 @@
 # HorizonLayout
 
+<div align="center">
+	<a href="https://www.npmjs.com/package/horizon-layout">
+		<img src="https://img.shields.io/npm/v/horizon-layout.svg" alt="npm version" />
+	</a>
+	<a href="https://www.npmjs.com/package/horizon-layout">
+		<img src="https://img.shields.io/npm/l/horizon-layout.svg" alt="npm license" />
+	</a>
+</div>
+
 ### A headless, fully keyboard-accessible docking layout for Svelte 5. Users can drag tabs between panes, resize splits, and pop views out into separate browser windows, all described by a plain serialisable config object that you bind to and persist however you like.
+
+---
+
+## Installation
+
+Install the package from npm:
+
+```sh
+npm install horizon-layout
+```
+
+Requires Svelte 5 as a peer dependency.
 
 ---
 
