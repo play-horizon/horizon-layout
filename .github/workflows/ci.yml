@@ -12,6 +12,14 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Fail on CRLF line endings
+        run: |
+          files=$(git grep -I -l $'\r' -- .) || exit 0
+          while IFS= read -r f; do
+            echo "::error file=$f::$f has CRLF line endings; convert it to LF."
+          done <<< "$files"
+          exit 1
+
       - uses: pnpm/action-setup@v4
         with:
           version: 10
