@@ -1,7 +1,7 @@
 <script lang="ts" module>
-	import type { Id, LayoutConfig, View } from '$lib/types.js';
+	import type { Id, LayoutConfig, View } from '#lib/types.js';
 	import { SvelteMap } from 'svelte/reactivity';
-	import HorizonLayout from '$lib/HorizonLayout.svelte';
+	import HorizonLayout from '#lib/HorizonLayout.svelte';
 	import { themes } from './themes.js';
 	import InteractionOptions from './InteractionOptions.svelte';
 	import ConstraintOptions from './ConstraintOptions.svelte';

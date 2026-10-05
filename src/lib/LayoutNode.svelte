@@ -9,8 +9,8 @@
 		NodeConfig
 	} from './types.ts';
 	import { nodeConfigType } from './utils.ts';
-	import HorizonSplit from '$lib/Split.svelte';
-	import HorizonTabGroup from '$lib/TabGroup.svelte';
+	import HorizonSplit from './Split.svelte';
+	import HorizonTabGroup from './TabGroup.svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import type { DropTarget } from './internal-types.ts';
 

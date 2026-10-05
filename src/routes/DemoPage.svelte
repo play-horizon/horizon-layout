@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Id } from '$lib/types.js';
+	import type { Id } from '#lib/types.js';
 
 	let {
 		accent,

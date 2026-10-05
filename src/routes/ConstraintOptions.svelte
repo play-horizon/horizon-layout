@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { LayoutConfig, NodeConfig, SplitConfig } from '$lib/types.js';
-	import { nodeConfigType } from '$lib/utils.js';
+	import type { LayoutConfig, NodeConfig, SplitConfig } from '#lib/types.js';
+	import { nodeConfigType } from '#lib/utils.js';
 
 	// Split constraint fields for a HorizonLayout instance, without the
 	// interaction toggles — lets layouts place interaction and constraints
