@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	import type { KeyboardShortcut, Modifier } from '$lib/types.js';
+	import type { KeyboardShortcut, Modifier } from '#lib/types.js';
 
 	// Which internal action the shortcut maps onto.
 	export type ActionId =

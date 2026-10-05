@@ -1,5 +1,5 @@
 <script lang="ts">
-	import HorizonLayout from '$lib/HorizonLayout.svelte';
+	import HorizonLayout from '#lib/HorizonLayout.svelte';
 	import type {
 		Id,
 		KeyboardControl,
@@ -11,8 +11,8 @@
 		SplitConfig,
 		TabGroupConfig,
 		View
-	} from '$lib/types.js';
-	import '$lib/horizon-layout.css';
+	} from '#lib/types.js';
+	import '#lib/horizon-layout.css';
 	import './demo-themes.css';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { createRawSnippet, mount, unmount } from 'svelte';
@@ -22,7 +22,7 @@
 		nodeConfigType,
 		parseLayoutConfig,
 		simplifyTabGroup
-	} from '$lib/utils.js';
+	} from '#lib/utils.js';
 	import { themes, themeClassMap } from './themes.js';
 	import DemoPage from './DemoPage.svelte';
 	import NestedDemo from './NestedDemo.svelte';

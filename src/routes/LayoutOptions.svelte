@@ -21,8 +21,8 @@
 </script>
 
 <script lang="ts">
-	import type { LayoutConfig, NodeConfig, SplitConfig } from '$lib/types.js';
-	import { nodeConfigType } from '$lib/utils.js';
+	import type { LayoutConfig, NodeConfig, SplitConfig } from '#lib/types.js';
+	import { nodeConfigType } from '#lib/utils.js';
 
 	// Shared config sidebar for a HorizonLayout instance: interaction toggles,
 	// split constraints and the split-ratio display format.
