@@ -6,7 +6,7 @@ on:
 
 jobs:
   check:
-    name: Type check, lint & format
+    name: Type check, lint, format & test
     runs-on: ubuntu-latest
 
     steps:
@@ -37,6 +37,9 @@ jobs:
 
       - name: Lint & check formatting
         run: pnpm run lint
+
+      - name: Unit tests
+        run: pnpm run test
 
   release:
     name: Release & Publish
