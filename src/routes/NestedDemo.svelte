@@ -5,7 +5,7 @@
 	import { themes } from './themes.js';
 	import InteractionOptions from './InteractionOptions.svelte';
 	import ConstraintOptions from './ConstraintOptions.svelte';
-	import { ratioFormats, type RatioFormat } from './LayoutOptions.svelte';
+	import { ratioFormats, type RatioFormat } from './ratio-formats.js';
 </script>
 
 <script lang="ts">
@@ -17,7 +17,7 @@
 			direction: 'horizontal',
 			views: [
 				{ tabs: ['nested-overview'], activeTabIndex: 0 },
-				{ tabs: ['nested-timeline'], activeTabIndex: 0 }
+				{ tabs: ['nested-details'], activeTabIndex: 0 }
 			],
 			splitPoints: [0.4]
 		}
@@ -25,12 +25,12 @@
 
 	const nestedViews = new SvelteMap<Id, View>([
 		['nested-overview', { title: 'Overview', snippet: nestedOverview }],
-		['nested-timeline', { title: 'Timeline', snippet: nestedTimeline }]
+		['nested-details', { title: 'Details', snippet: nestedDetails }]
 	]);
 
 	// The nested layout keeps its own theme, independent of the outer one.
 	// Pinned to a theme id so reordering the themes list cannot change it.
-	let nestedTheme = $state(themes.find((t) => t.id === 'forest')?.id ?? themes.at(-1)!.id);
+	let nestedTheme = $state(themes.find((t) => t.id === 'nord')?.id ?? themes.at(-1)!.id);
 
 	// The nested layout also has its own config knobs, independent of the outer one.
 	let showSplitRatio = $state(true);
@@ -51,22 +51,16 @@
 
 {#snippet nestedOverview()}
 	<div class="nested-block">
-		<h3>Nested layout</h3>
 		<p>
-			This pane hosts a second, fully interactive HorizonLayout with <strong>its own theme</strong>,
-			independent from the outer layout's theme. It shares the same view registry machinery, so tabs
-			can be split, dragged and popped out inside it too.
+			A second HorizonLayout inside a tab. Its theme and options are set in its own sidebar and
+			don't affect the outer layout.
 		</p>
 	</div>
 {/snippet}
 
-{#snippet nestedTimeline()}
+{#snippet nestedDetails()}
 	<div class="nested-block">
-		<h3>Activity</h3>
-		<ul>
-			<li>Inner panes support the same keyboard shortcuts as the outer layout.</li>
-			<li>Change the inner theme and options in the sidebar to the left.</li>
-		</ul>
+		<p>Split, resize and reorder tabs here the same way as in the outer layout.</p>
 	</div>
 {/snippet}
 
@@ -222,12 +216,10 @@
 	}
 
 	.nested-section h2 {
-		margin: 0 0 0.5rem;
-		font-size: 0.7rem;
+		margin: 0 0 0.25rem;
+		font-size: 0.75rem;
 		font-weight: 600;
-		text-transform: uppercase;
-		letter-spacing: 0.08em;
-		color: var(--hl-muted-foreground);
+		color: var(--hl-foreground);
 	}
 
 	.nested-select {
@@ -252,18 +244,7 @@
 		line-height: 1.5;
 	}
 
-	.nested-block h3 {
-		margin: 0 0 0.4rem;
-		font-size: 0.85rem;
-		color: var(--hl-foreground);
-	}
-
-	.nested-block ul {
-		padding-left: 1.1rem;
-		margin: 0.4rem 0 0;
-	}
-
-	.nested-block li {
-		margin-bottom: 0.25rem;
+	.nested-block p {
+		margin: 0;
 	}
 </style>

@@ -9,15 +9,12 @@
 		config,
 		minWidthRatio = $bindable(),
 		minHeightRatio = $bindable(),
-		maxDepth = $bindable(),
-		onChanged = () => {}
+		maxDepth = $bindable()
 	}: {
 		config: LayoutConfig;
 		minWidthRatio: number;
 		minHeightRatio: number;
 		maxDepth: number;
-		/** Notified whenever a value changes, for layouts that need to react. */
-		onChanged?: () => void;
 	} = $props();
 
 	let notice = $state('');
@@ -80,7 +77,6 @@
 		}
 		notice = '';
 		renormalizeSplitPoints();
-		onChanged();
 	}
 
 	function onMinHeightChanged(value: number) {
@@ -94,12 +90,10 @@
 		}
 		notice = '';
 		renormalizeSplitPoints();
-		onChanged();
 	}
 
 	function onMaxDepthChanged(value: number) {
 		maxDepth = Math.round(Math.min(Math.max(value, 1), 10));
-		onChanged();
 	}
 </script>
 
@@ -154,12 +148,10 @@
 	}
 
 	.lo-section h2 {
-		margin: 0 0 0.5rem;
-		font-size: 0.7rem;
+		margin: 0 0 0.25rem;
+		font-size: 0.75rem;
 		font-weight: 600;
-		text-transform: uppercase;
-		letter-spacing: 0.08em;
-		color: var(--hl-muted-foreground);
+		color: var(--hl-foreground);
 	}
 
 	.field {

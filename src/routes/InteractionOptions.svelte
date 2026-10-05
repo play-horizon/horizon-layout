@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { ratioFormats } from './LayoutOptions.svelte';
-	import type { RatioFormat } from './LayoutOptions.svelte';
+	import { ratioFormats } from './ratio-formats.js';
+	import type { RatioFormat } from './ratio-formats.js';
 
 	// Interaction toggles for a HorizonLayout instance, without the constraint
 	// fields — lets layouts place interaction and constraints in separate
@@ -63,12 +63,10 @@
 	}
 
 	.lo-section h2 {
-		margin: 0 0 0.5rem;
-		font-size: 0.7rem;
+		margin: 0 0 0.25rem;
+		font-size: 0.75rem;
 		font-weight: 600;
-		text-transform: uppercase;
-		letter-spacing: 0.08em;
-		color: var(--hl-muted-foreground);
+		color: var(--hl-foreground);
 	}
 
 	.check-row {
