@@ -1,35 +1,35 @@
 :root {
-	--hl-background: oklch(0.09 0.02 264);
-	--hl-foreground: oklch(0.97 0.01 255);
-	--hl-primary: oklch(0.65 0.18 277);
-	--hl-popover: oklch(0.12 0.02 264 / 0.78);
-	--hl-border: oklch(0.28 0.05 266 / 0.55);
-	--hl-card: oklch(0.13 0.02 264 / 0.62);
-	--hl-secondary: oklch(0.22 0.03 265 / 0.55);
-	--hl-muted-foreground: oklch(0.68 0.03 255);
-	--hl-ring: oklch(0.65 0.18 277 / 0.55);
-	--hl-accent: oklch(0.22 0.05 266 / 0.65);
-	--hl-radius: 0.5rem;
+	--hl-background: #111624;
+	--hl-foreground: #f1f5f9;
+	--hl-primary: #598dff;
+	--hl-popover: #171e32;
+	--hl-border: #212c47;
+	--hl-card: #141a2b;
+	--hl-secondary: #192138;
+	--hl-muted-foreground: #8192b0;
+	--hl-ring: #598dff;
+	--hl-accent: #1e2944;
+	--hl-radius: 0.375rem;
 	--hl-glass-blur: 14px;
-	--hl-tab-inactive-color: oklch(0.68 0.03 255 / 0.65);
-	--hl-drop-hint-border: color-mix(in oklch, oklch(0.65 0.18 277) 80%, transparent);
-	--hl-drop-hint-bg: color-mix(in oklch, oklch(0.65 0.18 277) 12%, transparent);
+	--hl-tab-inactive-color: color-mix(in oklch, #8192b0 88%, transparent);
+	--hl-drop-hint-border: color-mix(in oklch, #598dff 80%, transparent);
+	--hl-drop-hint-bg: color-mix(in oklch, #598dff 12%, transparent);
 }
 
 .light {
-	--hl-background: oklch(0.96 0.01 264);
-	--hl-foreground: oklch(0.13 0.02 264);
-	--hl-primary: oklch(0.55 0.18 277);
-	--hl-popover: oklch(0.98 0.01 264 / 0.84);
-	--hl-border: oklch(0.82 0.02 264 / 0.65);
-	--hl-card: oklch(1 0 0 / 0.72);
-	--hl-secondary: oklch(0.97 0.01 264 / 0.65);
-	--hl-muted-foreground: oklch(0.42 0.04 255);
-	--hl-ring: oklch(0.55 0.18 277 / 0.55);
-	--hl-accent: oklch(0.88 0.025 264 / 0.72);
-	--hl-tab-inactive-color: oklch(0.42 0.04 255 / 0.65);
-	--hl-drop-hint-border: color-mix(in oklch, oklch(0.55 0.18 277) 80%, transparent);
-	--hl-drop-hint-bg: color-mix(in oklch, oklch(0.55 0.18 277) 12%, transparent);
+	--hl-background: #f8fafc;
+	--hl-foreground: #0f172a;
+	--hl-primary: #265de9;
+	--hl-popover: #ffffff;
+	--hl-border: oklch(0.9288 0.0126 255.5);
+	--hl-card: #ffffff;
+	--hl-secondary: #f1f5f9;
+	--hl-muted-foreground: #59687f;
+	--hl-ring: #265de9;
+	--hl-accent: #e2e8f0;
+	--hl-tab-inactive-color: color-mix(in oklch, #59687f 93%, transparent);
+	--hl-drop-hint-border: color-mix(in oklch, #265de9 80%, transparent);
+	--hl-drop-hint-bg: color-mix(in oklch, #265de9 12%, transparent);
 }
 
 .horizon-layout {
@@ -152,7 +152,7 @@
 .horizon-layout-split__ratio {
 	position: absolute;
 	padding: 2px 7px;
-	border-radius: 0.25rem;
+	border-radius: 0.125rem;
 	background: var(--hl-popover);
 	border: 1px solid var(--hl-border);
 	color: var(--hl-primary);
