@@ -24,28 +24,17 @@
 		simplifyTabGroup
 	} from '#lib/utils.js';
 	import { themes, themeClassMap } from './themes.js';
-	import DemoPage from './DemoPage.svelte';
+	import DemoPage, { type PageKind as DemoPageKind } from './DemoPage.svelte';
 	import NestedDemo from './NestedDemo.svelte';
 	import KeyboardControlsEditor from './KeyboardControls.svelte';
 	import type { ActionId } from './KeyboardControls.svelte';
 	import LayoutOptions from './LayoutOptions.svelte';
-	import { ratioFormats, type RatioFormat } from './LayoutOptions.svelte';
+	import { ratioFormats, type RatioFormat } from './ratio-formats.js';
 
 	// ------------------------------------------------------------------ pages
 
-	/** Palette used to assign an accent color per demo page. */
-	const palette = [
-		'oklch(0.65 0.18 277)',
-		'oklch(0.68 0.13 200)',
-		'oklch(0.7 0.14 155)',
-		'oklch(0.72 0.15 85)',
-		'oklch(0.66 0.16 25)',
-		'oklch(0.64 0.17 315)',
-		'oklch(0.7 0.12 230)',
-		'oklch(0.68 0.13 120)'
-	];
-
-	type PageKind = 'standard' | 'explorer' | 'terminal' | 'settings' | 'nested';
+	type PageKind = DemoPageKind | 'nested';
+	const pageKinds: PageKind[] = ['intro', 'usage', 'files', 'config', 'blank', 'nested'];
 
 	interface DemoPageDef {
 		id: Id;
@@ -56,11 +45,10 @@
 
 	function defaultPages(): DemoPageDef[] {
 		return [
-			{ id: 'getting-started', title: 'Getting started', kind: 'standard', persistent: true },
-			{ id: 'explorer', title: 'Explorer', kind: 'explorer' },
-			{ id: 'preview', title: 'Preview', kind: 'standard' },
-			{ id: 'terminal', title: 'Terminal', kind: 'terminal' },
-			{ id: 'settings', title: 'Settings', kind: 'settings' },
+			{ id: 'intro', title: 'Getting started', kind: 'intro', persistent: true },
+			{ id: 'usage', title: 'Usage', kind: 'usage' },
+			{ id: 'files', title: 'Files', kind: 'files' },
+			{ id: 'config', title: 'Config', kind: 'config' },
 			{ id: 'nested', title: 'Nested layout', kind: 'nested', persistent: true }
 		];
 	}
@@ -75,25 +63,18 @@
 			root: {
 				direction: 'horizontal',
 				views: [
-					{ tabs: ['getting-started', 'settings'], activeTabIndex: 0 },
+					{ tabs: ['intro', 'usage'], activeTabIndex: 0 },
 					{
 						direction: 'vertical',
 						views: [
-							{ tabs: ['explorer'], activeTabIndex: 0 },
-							{ tabs: ['terminal'], activeTabIndex: 0 }
+							{ tabs: ['files'], activeTabIndex: 0 },
+							{ tabs: ['config'], activeTabIndex: 0 }
 						],
-						splitPoints: [0.6]
+						splitPoints: [0.4]
 					},
-					{
-						direction: 'vertical',
-						views: [
-							{ tabs: ['preview'], activeTabIndex: 0 },
-							{ tabs: ['nested'], activeTabIndex: 0 }
-						],
-						splitPoints: [0.6]
-					}
+					{ tabs: ['nested'], activeTabIndex: 0 }
 				],
-				splitPoints: [0.26, 0.55]
+				splitPoints: [0.3, 0.55]
 			}
 		};
 	}
@@ -122,7 +103,7 @@
 
 	// ---------------------------------------------------------- view snippets
 
-	function pageSnippet(page: DemoPageDef, accent: string) {
+	function pageSnippet(page: DemoPageDef) {
 		return createRawSnippet(() => ({
 			render: () =>
 				`<div style="width:100%;height:100%;display:flex;flex-direction:column;"></div>`,
@@ -132,14 +113,7 @@
 						? mount(NestedDemo, { target: element })
 						: mount(DemoPage, {
 								target: element,
-								props: {
-									accent,
-									title: page.title,
-									id: page.id,
-									kind: page.kind,
-									persistent: !!page.persistent,
-									restore: () => (config.maximizedView = undefined)
-								}
+								props: { kind: page.kind, config: () => config }
 							});
 				return () => {
 					void unmount(handle as Parameters<typeof unmount>[0]);
@@ -150,13 +124,13 @@
 
 	let views = $derived.by(() => {
 		const map = new SvelteMap<Id, View>();
-		pages.forEach((page, index) => {
+		for (const page of pages) {
 			map.set(page.id, {
 				title: page.title,
-				snippet: pageSnippet(page, palette[index % palette.length]!),
+				snippet: pageSnippet(page),
 				tabControls: [popoutButton, closeButton]
 			});
-		});
+		}
 		return map;
 	});
 
@@ -172,7 +146,7 @@
 
 	function addPage() {
 		const id = `page-${nextPageNumber++}` as Id;
-		pages = [...pages, { id, title: `Page ${nextPageNumber - 1}`, kind: 'standard' }];
+		pages = [...pages, { id, title: `Page ${nextPageNumber - 1}`, kind: 'blank' }];
 		if (config.root) {
 			const group = lastTabGroup(config.root);
 			group.tabs.push(id);
@@ -549,7 +523,6 @@
 
 	const STORAGE_KEY = 'horizon-layout-demo-state';
 
-	let statusMessage = $state('');
 	let saveHandle: ReturnType<typeof setTimeout> | null = null;
 
 	function currentState() {
@@ -594,11 +567,7 @@
 				.map((p: { id: string; title: string; kind?: string; persistent?: boolean }) => ({
 					id: p.id as Id,
 					title: p.title,
-					kind: (['standard', 'explorer', 'terminal', 'settings', 'nested'].includes(
-						p.kind as string
-					)
-						? p.kind
-						: 'standard') as PageKind,
+					kind: pageKinds.includes(p.kind as PageKind) ? (p.kind as PageKind) : 'blank',
 					persistent: !!p.persistent
 				}));
 			if (!restoredPages.some((p: DemoPageDef) => p.kind === 'nested')) return false;
@@ -633,9 +602,6 @@
 				saveHandle = null;
 			}
 			localStorage.removeItem(STORAGE_KEY);
-			statusMessage = 'Persistence off — saved layout removed';
-		} else {
-			statusMessage = 'Persistence on — layout saves automatically';
 		}
 	}
 
@@ -668,29 +634,33 @@
 </script>
 
 {#snippet popoutButton(viewId: Id)}
-	<button class="ctl" onclick={() => popout(viewId)} title="Pop out">⤢</button>
-{/snippet}
-
-{#snippet closeButton(viewId: Id)}
-	{@const page = pages.find((p) => p.id === viewId)}
-	<button
-		class="ctl"
-		onclick={() => removePage(viewId)}
-		title={page?.persistent ? 'This page is locked' : 'Remove page'}
-		disabled={page?.persistent}
-	>
-		✕
+	<button class="ctl" onclick={() => popout(viewId)} title="Pop out" aria-label="Pop out">
+		<svg viewBox="0 0 16 16" aria-hidden="true">
+			<path
+				d="M9.5 2.5h4v4M13.5 2.5 8 8M11.5 9.5v3a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h3"
+			/>
+		</svg>
 	</button>
 {/snippet}
 
-{#snippet maximizeToggle(activeViewId: Id)}
+{#snippet closeButton(viewId: Id)}
+	{#if !pages.find((p) => p.id === viewId)?.persistent}
+		<button class="ctl" onclick={() => removePage(viewId)} title="Close" aria-label="Close">
+			<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8" /></svg>
+		</button>
+	{/if}
+{/snippet}
+
+{#snippet maximizeButton(activeViewId: Id)}
 	<button
 		class="ctl"
-		onclick={() =>
-			(config.maximizedView = config.maximizedView === activeViewId ? undefined : activeViewId)}
-		title="Maximize / restore"
+		onclick={() => (config.maximizedView = activeViewId)}
+		title="Maximize"
+		aria-label="Maximize"
 	>
-		⛶
+		<svg viewBox="0 0 16 16" aria-hidden="true">
+			<path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10" />
+		</svg>
 	</button>
 {/snippet}
 
@@ -698,10 +668,8 @@
 	<aside class="sidebar">
 		<div class="sidebar__column">
 			<header class="sidebar__brand">
-				<div>
-					<h1>horizon-layout</h1>
-					<p>demo playground</p>
-				</div>
+				<h1>horizon-layout</h1>
+				<a href="https://github.com/play-horizon/horizon-layout">GitHub</a>
 			</header>
 
 			<section class="sidebar__section">
@@ -718,16 +686,15 @@
 			</section>
 
 			<section class="sidebar__section">
-				<h2>Local storage</h2>
+				<h2>Persistence</h2>
 				<label class="check">
 					<input
 						type="checkbox"
 						checked={persistLayout}
 						onchange={(e) => setPersist((e.currentTarget as HTMLInputElement).checked)}
 					/>
-					Save layout automatically
+					Save to localStorage
 				</label>
-				{#if statusMessage}<p class="sidebar__status">{statusMessage}</p>{/if}
 			</section>
 		</div>
 
@@ -738,21 +705,20 @@
 					{#each pages as page (page.id)}
 						<li>
 							<span class="page-list__title">{page.title}</span>
-							{#if page.persistent}
-								<span class="page-list__lock" title="Locked">locked</span>
-							{:else}
+							{#if !page.persistent}
 								<button
-									class="ctl page-list__remove"
+									class="ctl"
 									onclick={() => removePage(page.id)}
 									title="Remove"
+									aria-label="Remove {page.title}"
 								>
-									✕
+									<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8" /></svg>
 								</button>
 							{/if}
 						</li>
 					{/each}
 				</ul>
-				<button class="btn btn--full" onclick={addPage}>+ Add page</button>
+				<button class="btn btn--full" onclick={addPage}>Add page</button>
 			</section>
 
 			<LayoutOptions
@@ -773,7 +739,7 @@
 			<section class="sidebar__section">
 				<h2>Keyboard controls</h2>
 				<KeyboardControlsEditor bindings={kbBindings} onChanged={onBindingChanged} />
-				<button class="btn btn--full" onclick={resetBindings}>Reset bindings</button>
+				<button class="btn btn--full" onclick={resetBindings}>Reset to defaults</button>
 			</section>
 		</div>
 	</aside>
@@ -793,9 +759,14 @@
 			{formatRatio}
 			{formatRatioForAria}
 			{keyboardControls}
-			tabgroupControls={[maximizeToggle]}
+			tabgroupControls={[maximizeButton]}
 			{onPopoutClose}
 		/>
+		{#if config.maximizedView}
+			<button class="btn restore" onclick={() => (config.maximizedView = undefined)}>
+				Restore layout
+			</button>
+		{/if}
 	</main>
 </div>
 
@@ -814,7 +785,6 @@
 	}
 
 	.app {
-		position: relative;
 		display: flex;
 		width: 100vw;
 		height: 100vh;
@@ -822,16 +792,10 @@
 		color: var(--hl-foreground);
 	}
 
-	.app > .layout {
-		flex: 1;
-		min-width: 0;
-		min-height: 0;
-	}
-
 	/* ------------------------------------------------------------ sidebar */
 
 	.sidebar {
-		width: 290px;
+		width: 270px;
 		flex-shrink: 0;
 		display: flex;
 		flex-direction: column;
@@ -841,6 +805,12 @@
 		border-right: 1px solid var(--hl-border);
 		background: var(--hl-card);
 		overflow-y: auto;
+	}
+
+	.sidebar__column {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
 	}
 
 	/* Portrait: the sidebar becomes a horizontal panel on top of the layout
@@ -855,7 +825,6 @@
 		   the viewport height and scrolls, so it never eats the layout. */
 		.sidebar {
 			width: auto;
-			max-width: none;
 			flex-direction: row;
 			align-items: stretch;
 			flex-wrap: wrap;
@@ -871,9 +840,6 @@
 		.sidebar__column {
 			flex: 1 1 0;
 			min-width: 11rem;
-			display: flex;
-			flex-direction: column;
-			gap: 1rem;
 			min-height: 0;
 			overflow-y: auto;
 			scrollbar-width: thin;
@@ -892,46 +858,34 @@
 		.sidebar :global(.kbd-row) {
 			break-inside: avoid;
 		}
-
-		.sidebar__brand {
-			border-right: none;
-			gap: 0.2rem;
-		}
-
-		.sidebar__brand p {
-			display: none;
-		}
-
-		.btn--full,
-		.page-list__title {
-			width: auto;
-		}
 	}
 
 	.sidebar__brand {
 		display: flex;
-		align-items: center;
-		gap: 0.6rem;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 0.5rem;
 	}
 
 	.sidebar__brand h1 {
 		margin: 0;
 		font-size: 0.95rem;
+		font-weight: 600;
 	}
 
-	.sidebar__brand p {
-		margin: 0;
-		font-size: 0.68rem;
+	.sidebar__brand a {
+		font-size: 0.75rem;
 		color: var(--hl-muted-foreground);
+	}
+
+	.sidebar__brand a:hover {
+		color: var(--hl-foreground);
 	}
 
 	.sidebar h2 {
-		margin: 0 0 0.5rem;
-		font-size: 0.7rem;
+		margin: 0 0 0.25rem;
+		font-size: 0.75rem;
 		font-weight: 600;
-		text-transform: uppercase;
-		letter-spacing: 0.08em;
-		color: var(--hl-muted-foreground);
 	}
 
 	.sidebar__section {
@@ -948,16 +902,13 @@
 		padding: 0;
 		display: flex;
 		flex-direction: column;
-		gap: 0.25rem;
 	}
 
 	.page-list li {
 		display: flex;
 		align-items: center;
 		gap: 0.4rem;
-		padding: 0.25rem 0.5rem;
-		border-radius: 0.4rem;
-		background: var(--hl-secondary);
+		min-height: 1.6rem;
 		font-size: 0.75rem;
 	}
 
@@ -968,22 +919,14 @@
 		white-space: nowrap;
 	}
 
-	.page-list__lock {
-		font-size: 0.6rem;
-		color: var(--hl-muted-foreground);
-	}
-
-	.page-list__remove {
-		background: transparent;
-	}
-
 	.btn {
 		border: 1px solid var(--hl-border);
 		background: var(--hl-secondary);
 		color: var(--hl-foreground);
-		font-size: 0.72rem;
-		padding: 0.3rem 0.55rem;
-		border-radius: 0.4rem;
+		font: inherit;
+		font-size: 0.75rem;
+		padding: 0.3rem 0.6rem;
+		border-radius: var(--hl-radius);
 		cursor: pointer;
 	}
 
@@ -996,9 +939,10 @@
 	}
 
 	.select {
+		font: inherit;
 		font-size: 0.75rem;
 		padding: 0.25rem 0.45rem;
-		border-radius: 0.4rem;
+		border-radius: var(--hl-radius);
 		border: 1px solid var(--hl-border);
 		background: var(--hl-card);
 		color: var(--hl-foreground);
@@ -1011,33 +955,51 @@
 		font-size: 0.75rem;
 	}
 
-	.sidebar__status {
-		margin: 0;
-		font-size: 0.7rem;
-		color: var(--hl-primary);
-	}
-
+	/* Icon buttons in tab bars and the page list. */
 	.ctl {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 1.25rem;
+		height: 1.25rem;
+		padding: 0;
 		border: none;
-		color: var(--hl-primary);
+		border-radius: calc(var(--hl-radius) - 0.125rem);
+		background: transparent;
+		color: var(--hl-muted-foreground);
 		cursor: pointer;
-		padding: 2px 5px;
-		border-radius: 4px;
-		font-size: 0.7rem;
-		line-height: 1.2;
-		background: var(--hl-secondary);
 	}
 
-	.ctl:disabled {
-		opacity: 0.4;
-		cursor: default;
+	.ctl:hover {
+		background: var(--hl-accent);
+		color: var(--hl-foreground);
+	}
+
+	.ctl svg {
+		width: 0.75rem;
+		height: 0.75rem;
+		fill: none;
+		stroke: currentColor;
+		stroke-width: 1.5;
+		stroke-linecap: round;
+		stroke-linejoin: round;
 	}
 
 	/* ------------------------------------------------------------- layout */
 
 	.layout {
+		position: relative;
 		flex: 1;
 		min-width: 0;
 		min-height: 0;
+	}
+
+	.restore {
+		position: absolute;
+		top: 0.5rem;
+		right: 0.5rem;
+		z-index: 10;
+		background: var(--hl-popover);
+		box-shadow: 0 4px 16px oklch(0 0 0 / 0.2);
 	}
 </style>

@@ -1,5 +1,5 @@
-// Demo themes for the HorizonLayout example page.
-// Each theme maps onto the --hl-* CSS custom properties consumed by horizon-layout.css.
+// Themes for the demo page. Each class sets the --hl-* custom properties read by
+// horizon-layout.css. `light` comes from the library; the others live in demo-themes.css.
 
 export interface DemoTheme {
 	id: string;
@@ -9,14 +9,9 @@ export interface DemoTheme {
 }
 
 export const themes: DemoTheme[] = [
-	{ id: 'light', name: 'Paper', className: 'theme-paper' },
-	{ id: 'nord', name: 'Nordic', className: 'theme-nordic' },
-	{ id: 'dark', name: 'Midnight', className: 'theme-midnight' },
-	{ id: 'dracula', name: 'Blood Moon', className: 'theme-bloodmoon' },
-	{ id: 'forest', name: 'Forest', className: 'theme-forest' },
-	{ id: 'solar', name: 'Solar Flare', className: 'theme-solar' },
-	{ id: 'rose', name: 'Rosewood', className: 'theme-rosewood' },
-	{ id: 'ocean', name: 'Deep Sea', className: 'theme-deepsea' }
+	{ id: 'dark', name: 'Dark', className: 'theme-dark' },
+	{ id: 'light', name: 'Light', className: 'light' },
+	{ id: 'nord', name: 'Nord', className: 'theme-nord' }
 ];
 
 export const themeClassMap = Object.fromEntries(themes.map((t) => [t.id, t.className]));
