@@ -140,12 +140,12 @@ export function validateConfig<V>(
 	const { minWidthRatio = DEFAULT_MIN_WIDTH_RATIO, minHeightRatio = DEFAULT_MIN_HEIGHT_RATIO } =
 		options;
 
-	if (config.maximizedView && !views.get(config.maximizedView)) {
+	if (config.maximizedView && !views.has(config.maximizedView)) {
 		throw new Error(`unknown maximizedView id "${config.maximizedView}"`);
 	}
 
 	for (const id of config.popouts ?? []) {
-		if (!views.get(id)) throw new Error(`unknown popout id "${id}"`);
+		if (!views.has(id)) throw new Error(`unknown popout id "${id}"`);
 	}
 
 	if (!config.root) return;
@@ -157,7 +157,7 @@ export function validateConfig<V>(
 			throw new Error('activeTabIndex out of range');
 		}
 		for (const id of tabGroup.tabs) {
-			if (!views.get(id)) throw new Error(`unknown tab id "${id}"`);
+			if (!views.has(id)) throw new Error(`unknown tab id "${id}"`);
 			if (seenIds.has(id)) throw new Error(`duplicate tab id "${id}"`);
 			seenIds.add(id);
 		}
