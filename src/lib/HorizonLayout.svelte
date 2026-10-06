@@ -22,7 +22,7 @@
 		validateConfig
 	} from './utils.ts';
 	import { DEFAULT_MIN_WIDTH_RATIO, DEFAULT_MIN_HEIGHT_RATIO } from './internal-utils.ts';
-	import { dropTargetType } from './internal-utils.ts';
+	import { dropTargetType, roundSplitPoint } from './internal-utils.ts';
 	import type { DropTarget } from './internal-types.ts';
 
 	interface Popout {
@@ -364,7 +364,7 @@
 		const minRatio = split.direction === 'horizontal' ? minWidthRatio : minHeightRatio;
 		const min = (split.splitPoints[index - 1] ?? 0) + minRatio;
 		const max = (split.splitPoints[index + 1] ?? 1) - minRatio;
-		const clamped = Number(Math.min(Math.max(ratio, min), max).toFixed(4));
+		const clamped = roundSplitPoint(Math.min(Math.max(ratio, min), max));
 		if (clamped !== split.splitPoints[index]) split.splitPoints[index] = clamped;
 	}
 

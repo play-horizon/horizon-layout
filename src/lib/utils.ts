@@ -1,5 +1,9 @@
 import { SvelteMap } from 'svelte/reactivity';
-import { DEFAULT_MIN_WIDTH_RATIO, DEFAULT_MIN_HEIGHT_RATIO } from './internal-utils.ts';
+import {
+	DEFAULT_MIN_WIDTH_RATIO,
+	DEFAULT_MIN_HEIGHT_RATIO,
+	roundSplitPoint
+} from './internal-utils.ts';
 import type {
 	Id,
 	LayoutConfig,
@@ -169,9 +173,9 @@ export function validateConfig<V>(
 		}
 		const minRatio = split.direction === 'horizontal' ? minWidthRatio : minHeightRatio;
 		for (let i = 0; i < split.splitPoints.length; i++) {
-			const point = split.splitPoints[i]!;
+			const point = roundSplitPoint(split.splitPoints[i]!);
 			const prev = split.splitPoints[i - 1] ?? 0;
-			if (point < prev + minRatio || point > 1 - minRatio) {
+			if (point < roundSplitPoint(prev + minRatio) || point > roundSplitPoint(1 - minRatio)) {
 				throw new Error('splitPoints violate minRatio constraints');
 			}
 		}

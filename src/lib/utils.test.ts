@@ -120,6 +120,7 @@ describe('validateConfig', () => {
 
 	it.each([
 		[[0.3, 0.6], true],
+		[[0.2, 0.3], true],
 		[[0.4, 0.45], false],
 		[[0.6, 0.3], false]
 	])('checks consecutive split points %o', (splitPoints, valid) => {
@@ -136,6 +137,12 @@ describe('validateConfig', () => {
 		};
 		if (valid) expect(() => validateConfig(config, views)).not.toThrow();
 		else expect(() => validateConfig(config, views)).toThrow('splitPoints violate minRatio');
+	});
+
+	it('accepts a split point clamped to a minRatio with more than 4 decimals', () => {
+		const config = threePaneConfig();
+		(config.root as SplitConfig).splitPoints = [0.3333];
+		expect(() => validateConfig(config, views, { minWidthRatio: 1 / 3 })).not.toThrow();
 	});
 
 	it('rejects a negative activeTabIndex', () => {
