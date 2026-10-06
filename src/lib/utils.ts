@@ -189,11 +189,9 @@ export function validateConfig<V>(
 }
 
 function parseNodeConfig(object: unknown, path: string): NodeConfig {
-	try {
-		return parseSplitConfig(object, path);
-	} catch {
-		return parseTabGroupConfig(object, path);
-	}
+	if (typeof object !== 'object' || object === null) throw new Error(`${path}: expected an object`);
+	const isSplit = 'direction' in object || 'views' in object || 'splitPoints' in object;
+	return isSplit ? parseSplitConfig(object, path) : parseTabGroupConfig(object, path);
 }
 
 function parseSplitConfig(object: unknown, path: string): SplitConfig {
