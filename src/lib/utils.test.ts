@@ -166,6 +166,16 @@ describe('validateConfig', () => {
 		);
 		expect(() => validateConfig({ popouts: ['y'] }, views)).toThrow('unknown popout id "y"');
 	});
+
+	it('accepts ids whose view value is falsy', () => {
+		const falsyViews = new Map([['a', 0]]);
+		const config: LayoutConfig = {
+			root: { tabs: ['a'], activeTabIndex: 0 },
+			maximizedView: 'a',
+			popouts: ['a']
+		};
+		expect(() => validateConfig(config, falsyViews)).not.toThrow();
+	});
 });
 
 describe('parseLayoutConfig', () => {
@@ -217,6 +227,28 @@ describe('parseLayoutConfig', () => {
 	it('rejects an empty tab id', () => {
 		expect(() => parseLayoutConfig({ root: { tabs: [''], activeTabIndex: 0 } })).toThrow(
 			'config.root.tabs[0]: expected a non-empty string'
+		);
+	});
+
+	it.each([
+		[{ direction: 'diagonal' }, 'config.root.direction: expected "horizontal" or "vertical"'],
+		[
+			{ views: [{ tabs: ['a'], activeTabIndex: 0 }] },
+			'config.root.views: expected an array of at least 2 elements'
+		],
+		[{ splitPoints: [] }, 'config.root.splitPoints: expected a non-empty array'],
+		[{ splitPoints: ['0.5'] }, 'config.root.splitPoints[0]: expected a number']
+	])('reports what is wrong with an invalid split (%o)', (override, message) => {
+		const root = { ...threePaneConfig().root, ...override };
+		expect(() => parseLayoutConfig({ root })).toThrow(message);
+	});
+
+	it('reports the path of an invalid nested node', () => {
+		const config = threePaneConfig();
+		const inner = (config.root as SplitConfig).views[1] as SplitConfig;
+		delete (inner.views[1] as Partial<TabGroupConfig>).activeTabIndex;
+		expect(() => parseLayoutConfig(config)).toThrow(
+			'config.root.views[1].views[1].activeTabIndex: expected a number'
 		);
 	});
 });
