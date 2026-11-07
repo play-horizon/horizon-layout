@@ -633,6 +633,14 @@
 	}
 </script>
 
+<svelte:window
+    onkeydown={(event) => {
+        if (event.key === 'Escape' && !event.defaultPrevented && config.maximizedView) {
+            config.maximizedView = undefined;
+        }
+    }}
+/>
+
 {#snippet popoutButton(viewId: Id)}
 	<button class="ctl" onclick={() => popout(viewId)} title="Pop out" aria-label="Pop out">
 		<svg viewBox="0 0 16 16" aria-hidden="true">
