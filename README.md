@@ -319,3 +319,33 @@ To handle blocked popouts yourself — for example to show a notification or dec
 	}}
 />
 ```
+
+---
+
+## Maximized view
+
+Set `config.maximizedView` to a view id and HorizonLayout fills the whole container with that view. The split layout stays in `config.root` and comes back when the field is cleared. The demo passes a maximize button through `tabgroupControls`. The snippet receives the active view id of that tab group.
+
+```svelte
+{#snippet maximizeButton(activeViewId: Id)}
+	<button
+		onclick={() => (config.maximizedView = activeViewId)}
+		title="Maximize"
+		aria-label="Maximize"
+	>
+		Maximize
+	</button>
+{/snippet}
+
+<HorizonLayout bind:config {views} tabgroupControls={[maximizeButton]} />
+```
+
+While a view is maximized, HorizonLayout renders only that view, so the tab-group toolbar is not on screen. The demo restores the layout with a separate button that sets `config.maximizedView = undefined`:
+
+```svelte
+{#if config.maximizedView}
+	<button class="btn restore" onclick={() => (config.maximizedView = undefined)}>
+		Restore layout
+	</button>
+{/if}
+```
