@@ -1,8 +1,16 @@
 {
 	"name": "horizon-layout",
 	"version": "1.0.4",
+	"description": "A headless, fully keyboard-accessible docking layout for Svelte 5.",
 	"keywords": [
-		"svelte"
+		"docking",
+		"drag-and-drop",
+		"layout",
+		"popout",
+		"split-pane",
+		"svelte",
+		"svelte5",
+		"tabs"
 	],
 	"homepage": "https://play-horizon.github.io/horizon-layout",
 	"license": "MIT",
