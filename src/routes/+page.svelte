@@ -189,6 +189,13 @@
 		pages = pages.filter((p) => p.id !== id);
 	}
 
+	function resetLayout() {
+		pages = defaultPages();
+		config = defaultConfig();
+		nextPageNumber = 1;
+		popoutsOriginalPositions = [];
+	}
+
 	// ----------------------------------------------------------------- popout
 
 	let popoutsOriginalPositions: { viewId: Id; position: number[] }[] = [];
@@ -719,6 +726,7 @@
 					{/each}
 				</ul>
 				<button class="btn btn--full" onclick={addPage}>Add page</button>
+				<button class="btn btn--full" onclick={resetLayout}>Reset layout</button>
 			</section>
 
 			<LayoutOptions
