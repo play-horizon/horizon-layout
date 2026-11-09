@@ -634,11 +634,11 @@
 </script>
 
 <svelte:window
-    onkeydown={(event) => {
-        if (event.key === 'Escape' && !event.defaultPrevented && config.maximizedView) {
-            config.maximizedView = undefined;
-        }
-    }}
+	onkeydown={(event) => {
+		if (event.key === 'Escape' && !event.defaultPrevented && config.maximizedView) {
+			config.maximizedView = undefined;
+		}
+	}}
 />
 
 {#snippet popoutButton(viewId: Id)}
