@@ -550,6 +550,19 @@
 		};
 	}
 
+	/** Highest `page-N` number already in use, or 0 when none exist. */
+	function highestPageNumber(pageList: { id: string }[]): number {
+		let highest = 0;
+		for (const page of pageList) {
+			const match = /^page-(\d+)$/.exec(page.id);
+			const digits = match?.[1];
+			if (digits === undefined) continue;
+			const value = Number(digits);
+			if (value > highest) highest = value;
+		}
+		return highest;
+	}
+
 	function applyPersisted(state: {
 		config?: unknown;
 		pages?: unknown;
@@ -580,6 +593,7 @@
 			if (!restoredPages.some((p: DemoPageDef) => p.kind === 'nested')) return false;
 			config = parsed;
 			pages = restoredPages;
+			nextPageNumber = highestPageNumber(restoredPages) + 1;
 			mainTheme = themes.some((t) => t.id === state.theme)
 				? (state.theme as string)
 				: themes[0]!.id;
