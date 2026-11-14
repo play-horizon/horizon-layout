@@ -182,6 +182,6 @@
 	.lo-notice {
 		margin: 0;
 		font-size: 0.7rem;
-		color: oklch(0.72 0.15 85);
+		color: var(--demo-warning);
 	}
 </style>

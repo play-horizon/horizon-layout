@@ -574,6 +574,6 @@
 		right: 0.5rem;
 		z-index: 10;
 		background: var(--hl-popover);
-		box-shadow: 0 4px 16px oklch(0 0 0 / 0.2);
+		box-shadow: var(--hl-floating-shadow);
 	}
 </style>

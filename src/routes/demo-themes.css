@@ -1,5 +1,17 @@
-/* Same values as the library's :root defaults, as a class so a nested layout
-   can switch back to the dark theme inside a light one. */
+/* The demo's themes: the --hl-* custom properties horizon-layout.css reads, and --demo-warning,
+   the colour of the demo's own warnings. `.theme-dark` has the same --hl-* values as the
+   library's :root defaults, as a class so a nested layout can switch back to the dark theme
+   inside a light one; `.light` is the library's light theme. */
+
+:root,
+.theme-dark {
+	--demo-warning: oklch(0.82 0.15 85);
+}
+
+.light {
+	--demo-warning: oklch(0.5 0.12 70);
+}
+
 .theme-dark {
 	--hl-background: #111624;
 	--hl-foreground: #f1f5f9;
@@ -14,6 +26,7 @@
 	--hl-tab-inactive-color: color-mix(in oklch, #8192b0 88%, transparent);
 	--hl-drop-hint-border: color-mix(in oklch, #598dff 80%, transparent);
 	--hl-drop-hint-bg: color-mix(in oklch, #598dff 12%, transparent);
+	--hl-floating-shadow: 0 12px 32px oklch(0 0 0 / 0.45);
 }
 
 .theme-nord {
@@ -30,4 +43,6 @@
 	--hl-tab-inactive-color: color-mix(in oklch, #a3adbf 65%, transparent);
 	--hl-drop-hint-border: color-mix(in oklch, #88c0d0 80%, transparent);
 	--hl-drop-hint-bg: color-mix(in oklch, #88c0d0 14%, transparent);
+	--hl-floating-shadow: 0 12px 32px oklch(0.15 0.02 260 / 0.45);
+	--demo-warning: #ebcb8b;
 }
