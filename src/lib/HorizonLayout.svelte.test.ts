@@ -628,3 +628,57 @@ describe('refused splits and docks', () => {
 		expect(props.config).toEqual(tooNarrow);
 	});
 });
+
+describe('validation on the inputs it reads', () => {
+	/** Renders `initial` with every validation input held in `$state`, and returns them. */
+	function renderInputs(initial: LayoutConfig) {
+		const props = $state({
+			config: initial,
+			ids: ['a', 'b', 'c', 'd'],
+			skipValidation: false
+		});
+		render(LayoutHarness, {
+			props: {
+				get config() {
+					return props.config;
+				},
+				set config(value) {
+					props.config = value;
+				},
+				get ids() {
+					return props.ids;
+				},
+				get skipValidation() {
+					return props.skipValidation;
+				}
+			}
+		});
+		return props;
+	}
+
+	it('shows an invalid config while skipValidation is on, and nothing once it is off', () => {
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		const props = renderInputs({ root: { tabs: ['a'], activeTabIndex: 0 } });
+		props.skipValidation = true;
+		props.config = { root: { tabs: ['a', 'z'], activeTabIndex: 0 } };
+		flushSync();
+		expect(screen.getAllByRole('tablist')).toHaveLength(1);
+
+		props.skipValidation = false;
+		flushSync();
+		expect(screen.queryByRole('tablist')).toBeNull();
+	});
+
+	it('shows nothing once the views are replaced by views lacking one it shows', () => {
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		const props = renderInputs(twoPanes());
+
+		props.ids = ['a', 'b', 'd'];
+		flushSync();
+		expect(screen.queryByRole('tablist')).toBeNull();
+
+		props.ids = ['a', 'b', 'c', 'd'];
+		flushSync();
+		expect(screen.getAllByRole('tablist')).toHaveLength(2);
+	});
+});

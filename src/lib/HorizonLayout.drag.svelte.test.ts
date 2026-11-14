@@ -6,7 +6,7 @@
  */
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { flushSync } from 'svelte';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fakeDataTransfer } from '../test/drag.ts';
 import LayoutHarness from '../test/LayoutHarness.svelte';
 import type { LayoutConfig, SplitConfig } from './types.ts';
@@ -26,7 +26,7 @@ function twoPanes(): LayoutConfig {
 
 /** Renders the harness with a config and view ids held in `$state`, and returns them. */
 function renderLayout(initial: LayoutConfig) {
-	const state = $state({ config: initial, ids: ['a', 'b', 'c', 'd'] });
+	const state = $state({ config: initial, ids: ['a', 'b', 'c', 'd'], minWidthRatio: 0.1 });
 	const { container } = render(LayoutHarness, {
 		props: {
 			get config() {
@@ -37,6 +37,9 @@ function renderLayout(initial: LayoutConfig) {
 			},
 			get ids() {
 				return state.ids;
+			},
+			get minWidthRatio() {
+				return state.minWidthRatio;
 			}
 		}
 	});
@@ -74,6 +77,8 @@ async function dropOn(zone: Element) {
 	await fireEvent.dragOver(zone, dataTransfer());
 	await fireEvent.drop(zone, dataTransfer());
 }
+
+afterEach(() => vi.restoreAllMocks());
 
 describe('dragging a tab', () => {
 	it('carries the view id as its data, which Firefox needs to start the drag', async () => {
@@ -166,6 +171,23 @@ describe('dragging a tab', () => {
 
 		expect(state.config).toEqual(twoPanes());
 		expect(tab('Title of b')).toBeTruthy();
+		expect(container.querySelector('.horizon-layout-tabgroup__drop-zones')).toBeNull();
+	});
+
+	it('is cancelled when a tighter minimum makes the config invalid', async () => {
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		const { state, container } = renderLayout(twoPanes());
+		await startDrag('Title of b');
+
+		// Two panes can't each be 60% wide.
+		state.minWidthRatio = 0.6;
+		flushSync();
+		expect(screen.queryByRole('tablist')).toBeNull();
+		await fireEvent.dragEnd(window);
+
+		state.minWidthRatio = 0.1;
+		flushSync();
+		expect(state.config).toEqual(twoPanes());
 		expect(container.querySelector('.horizon-layout-tabgroup__drop-zones')).toBeNull();
 	});
 
