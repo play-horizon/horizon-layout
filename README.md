@@ -297,7 +297,9 @@ The default theme draws every edge once, so two panes meet on a single 1px line:
 group has only its right and bottom borders (the lines to its neighbours, or the layout's own
 edges), and the docked layout's wrapper (`.horizon-layout__content--docked`) the left and top
 ones. A floating group's tab group has its full border. A theme that gives every group a full
-border instead shows two lines side by side where panes meet.
+border instead shows two lines side by side where panes meet. A maximised view
+(`.horizon-layout__content--maximized`), shown with no tab group around it, has its full border,
+the background of a tab group's content (`--hl-card`) and scrolls on its own.
 
 ## CSS classes
 
@@ -307,7 +309,7 @@ All elements receive BEM classes derived from `baseClass` (`"horizon-layout"` by
 | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `.horizon-layout`                                                  | Root container                                                                                                                                                                                                                                               |
 | `.horizon-layout__content`                                         | Content wrapper (or maximised view wrapper)                                                                                                                                                                                                                  |
-| `.horizon-layout__content--maximized`                              | Added when a view is maximised                                                                                                                                                                                                                               |
+| `.horizon-layout__content--maximized`                              | Added when a view is maximised (the default theme gives it a frame, a background and scrolling)                                                                                                                                                              |
 | `.horizon-layout__content--docked`                                 | The docked layout's wrapper (draws its left and top border)                                                                                                                                                                                                  |
 | `.horizon-layout__popout`                                          | Popout window root element                                                                                                                                                                                                                                   |
 | `.horizon-layout__floating`                                        | Layer holding the floating groups, over the docked layout                                                                                                                                                                                                    |

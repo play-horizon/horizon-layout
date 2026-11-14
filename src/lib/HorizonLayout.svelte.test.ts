@@ -1,11 +1,14 @@
 /**
  * Component tests of HorizonLayout, rendered in jsdom through `LayoutHarness` (src/test): what it
- * renders, its accessible names (English by default, or the translations passed), how it applies
- * config changes and rejects invalid ones, and its built-in keyboard controls on docked tab groups
- * and split handles, focus following moved tabs.
+ * renders (and how the default theme draws a maximized view), its accessible names (English by
+ * default, or the translations passed), how it applies config changes and rejects invalid ones,
+ * and its built-in keyboard controls on docked tab groups and split handles, focus following
+ * moved tabs.
  * @module
  */
 import { fireEvent, render, screen } from '@testing-library/svelte';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { createRawSnippet, flushSync, tick } from 'svelte';
 import { SvelteMap } from 'svelte/reactivity';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -82,6 +85,29 @@ describe('HorizonLayout', () => {
 		const region = screen.getByRole('region', { name: 'Title of c' });
 		expect(region.textContent?.trim()).toBe('Body of c');
 		expect(screen.queryByRole('tablist')).toBeNull();
+	});
+
+	it('gives a maximized view a background, a frame and scrolling in the default theme', () => {
+		// Read from disk: vitest hands CSS imports to the tests empty.
+		const theme = document.createElement('style');
+		theme.textContent = readFileSync(join(import.meta.dirname, 'horizon-layout.css'), 'utf8');
+		document.head.append(theme);
+		try {
+			renderLayout({ ...twoPanes(), maximizedView: 'c' });
+			const style = getComputedStyle(screen.getByRole('region', { name: 'Title of c' }));
+			// --hl-card of the dark theme, #141a2b: the background of a docked view's content.
+			expect(style.backgroundColor).toBe('rgb(20, 26, 43)');
+			expect(style.overflow).toBe('auto');
+			for (const width of [
+				style.borderTopWidth,
+				style.borderRightWidth,
+				style.borderBottomWidth,
+				style.borderLeftWidth
+			])
+				expect(width).toBe('1px');
+		} finally {
+			theme.remove();
+		}
 	});
 
 	it('keeps the panels whose place is unchanged mounted when the config changes outside', () => {
