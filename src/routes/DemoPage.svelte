@@ -79,7 +79,13 @@ else floatView(config, 'docs', { x: 80, y: 60, width: 420, height: 520 });`;
 		<ul>
 			<li>Drag a tab to reorder it, or drop it on the edge of another pane to split that pane.</li>
 			<li>Drag the line between two panes to resize them.</li>
-			<li>Pop a tab out into its own window with the button next to its title.</li>
+			<li>
+				Float a tab over the layout, or pop it out into its own window, with the buttons next to its
+				title.
+			</li>
+			<li>
+				Maximize a pane with the button at the end of its tab bar; Escape restores the layout.
+			</li>
 			<li>Click a tab bar, then use the keyboard shortcuts listed in the sidebar.</li>
 		</ul>
 		<pre><code>pnpm add horizon-layout</code></pre>
