@@ -267,28 +267,12 @@
 	background: color-mix(in oklch, var(--hl-border) 18%, transparent);
 }
 
-.horizon-layout-tabgroup__tab-active-fill {
-	position: absolute;
-	bottom: -1px;
-	left: 0;
-	right: 0;
-	height: 1px;
-	background: var(--hl-secondary);
-	pointer-events: none;
-}
-
 .horizon-layout-tabgroup__tabs:focus-visible .horizon-layout-tabgroup__tab--active {
 	outline: 2px solid var(--hl-ring);
 	outline-offset: -2px;
 	border-radius: 4px;
 	background: var(--hl-accent);
 	color: var(--hl-foreground);
-}
-
-.horizon-layout-tabgroup__tabs:focus-visible
-	.horizon-layout-tabgroup__tab--active
-	.horizon-layout-tabgroup__tab-active-fill {
-	background: var(--hl-accent);
 }
 
 .horizon-layout-tabgroup__tab-title {
