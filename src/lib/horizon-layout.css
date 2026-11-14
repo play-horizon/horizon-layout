@@ -147,7 +147,7 @@
 	width: calc(100% - 16px);
 }
 
-.horizon-layout-split__resizer-handle--hover::before,
+.horizon-layout-split__resizer-handle:hover::before,
 .horizon-layout-split__resizer-handle--active::before {
 	opacity: 1;
 }
