@@ -3,7 +3,7 @@
 The demo and documentation site of horizon-layout, prerendered for GitHub Pages: a sidebar of
 options (theme, persistence, pages, layout props, keyboard bindings) beside the main HorizonLayout,
 whose pages (`pages.ts`) show the library's docs and a nested layout. Persistence, the keyboard
-actions and the popout bookkeeping live in their own modules.
+actions, docking a floating group and the popout bookkeeping live in their own modules.
 -->
 <script lang="ts">
 	import HorizonLayout from '#lib/HorizonLayout.svelte';
@@ -26,9 +26,11 @@ actions and the popout bookkeeping live in their own modules.
 	import FloatIcon from '~icons/mingcute/miniplayer-line';
 	import MaximizeIcon from '~icons/mingcute/fullscreen-line';
 	import PopoutIcon from '~icons/mingcute/external-link-line';
+	import DockIcon from '~icons/mingcute/arrow-to-down-line';
 	import { defaultConfig, defaultPages, highestPageNumber, type DemoPageDef } from './pages.js';
 	import { lastTabGroup } from './layout-tree.js';
 	import { DEFAULT_CONSTRAINTS } from './constraints.js';
+	import { dockAtEnd, floatingGroupOf, focusTabListOf } from './dock.js';
 	import { PopoutOrigins } from './popout-origins.js';
 	import {
 		buildKeyboardControls,
@@ -276,6 +278,23 @@ actions and the popout bookkeeping live in their own modules.
 	{/if}
 {/snippet}
 
+<!-- On a floating group only: docks its tabs at the end of the layout (see dock.ts). -->
+{#snippet dockButton(activeViewId: Id)}
+	{@const group = floatingGroupOf(config, activeViewId)}
+	{#if group}
+		<IconButton
+			icon={DockIcon}
+			label="Dock in the layout"
+			onclick={(event) => {
+				const layoutElement = (event.currentTarget as Element).closest('.horizon-layout');
+				const title = views.get(activeViewId)?.title;
+				dockAtEnd(config, group);
+				if (layoutElement && title !== undefined) void focusTabListOf(layoutElement, title);
+			}}
+		/>
+	{/if}
+{/snippet}
+
 {#snippet maximizeButton(activeViewId: Id)}
 	<IconButton
 		icon={MaximizeIcon}
@@ -392,7 +411,7 @@ actions and the popout bookkeeping live in their own modules.
 			{formatRatio}
 			{formatRatioForAria}
 			{keyboardControls}
-			tabgroupControls={[maximizeButton]}
+			tabgroupControls={[dockButton, maximizeButton]}
 			{onPopoutClose}
 		/>
 		{#if config.maximizedView}

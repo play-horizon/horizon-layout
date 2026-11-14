@@ -117,7 +117,10 @@ scrollable-region-focusable). -->
 		<p>This panel floats over the layout, and is saved with it in <code>config.floating</code>.</p>
 		<ul>
 			<li>Drag its tab bar to move it, and an edge or a corner to resize it.</li>
-			<li>Drag its tab onto a pane to dock it back, like any tab.</li>
+			<li>
+				Drag its tab onto a pane to dock it back, like any tab, or press its “Dock in the layout”
+				button, which puts its tabs at the end of the layout.
+			</li>
 			<li>Float any tab with the button next to its title.</li>
 			<li>
 				With the keyboard: focus the panel's frame (Tab), then the arrow keys move it and Alt +

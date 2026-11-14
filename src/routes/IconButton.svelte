@@ -14,7 +14,7 @@ accessible name and its tooltip; `icon` is a Mingcute icon component (`~icons/mi
 	}: {
 		icon: Component<SvelteHTMLElements['svg']>;
 		label: string;
-		onclick: () => void;
+		onclick: (event: MouseEvent) => void;
 	} = $props();
 </script>
 

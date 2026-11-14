@@ -50,6 +50,27 @@ describe('demo page', () => {
 		expect(within(tabs as HTMLElement).getAllByRole('tab')).toHaveLength(1);
 	});
 
+	it('docks a floating group at the end of the layout with its button, focusing its tab list', async () => {
+		render(Page);
+		flushSync();
+		const frame = screen.getByRole('dialog', { name: 'Floating panel, floating panel' });
+		// On floating groups only.
+		expect(screen.getAllByRole('button', { name: 'Dock in the layout' })).toHaveLength(1);
+
+		await fireEvent.click(within(frame).getByRole('button', { name: 'Dock in the layout' }));
+		await tick();
+		await tick();
+
+		expect(screen.queryByRole('dialog', { name: 'Floating panel, floating panel' })).toBeNull();
+		const tab = screen.getByRole('tab', { name: 'Floating panel' });
+		const tabs = [
+			...tab.closest('.horizon-layout-tabgroup__tabs')!.querySelectorAll('[role="tab"]')
+		];
+		expect(tabs.at(-1)).toBe(tab);
+		expect(tab.getAttribute('aria-selected')).toBe('true');
+		expect(document.activeElement?.getAttribute('aria-owns')?.split(' ')).toContain(tab.id);
+	});
+
 	it('keeps the nested layout mounted when another page is removed', async () => {
 		render(Page);
 		flushSync();

@@ -540,6 +540,23 @@ function showDocs() {
 change `config` in place; panels that stay in the same split (or float on) stay mounted, even
 when panes or floating groups before them come or go.
 
+A button that docks a whole floating group can be one of your `tabgroupControls`, shown on
+floating groups only: a named button that Tab reaches, for the pointer and for screen readers (the
+keys of the group's tab list, such as `Ctrl + End`, dock its active tab only). The demo's
+(`src/routes/dock.ts`) puts the group's tabs at the end of the layout, then focuses the tab list
+that holds them:
+
+```svelte
+{#snippet dockButton(activeId: Id)}
+	{@const group = config.floating?.find((floating) => floating.tabs.includes(activeId))}
+	{#if group}
+		<button aria-label="Dock in the layout" onclick={() => dockAtEnd(config, group)}>⤓</button>
+	{/if}
+{/snippet}
+
+<HorizonLayout bind:config {views} tabgroupControls={[dockButton]} />
+```
+
 ---
 
 ## Popout windows
