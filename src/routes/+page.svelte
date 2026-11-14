@@ -71,7 +71,7 @@ actions and the popout bookkeeping live in their own modules.
 						? mount(NestedDemo, { target: element })
 						: mount(DemoPage, {
 								target: element,
-								props: { kind: page.kind, config: () => config }
+								props: { kind: page.kind, title: page.title, config: () => config }
 							});
 				return () => {
 					void unmount(handle as Parameters<typeof unmount>[0]);
@@ -283,6 +283,10 @@ actions and the popout bookkeeping live in their own modules.
 		onclick={() => (config.maximizedView = activeViewId)}
 	/>
 {/snippet}
+
+<svelte:head>
+	<title>horizon-layout</title>
+</svelte:head>
 
 <!-- The theme is set on the body, which popout windows copy, so they show it too. -->
 <svelte:body

@@ -1,7 +1,7 @@
 <!--
 @component
 The content of one page of the main layout, chosen by `kind`; the `config` page shows the live
-layout config.
+layout config. The page scrolls, as a region named by its title that takes the focus.
 -->
 <script lang="ts" module>
 	/**
@@ -16,9 +16,12 @@ layout config.
 
 	let {
 		kind,
+		title,
 		config
 	}: {
 		kind: PageKind;
+		/** The page's title, which names its region. */
+		title: string;
 		/** Returns the live layout config, shown by the `config` page. */
 		config: () => LayoutConfig;
 	} = $props();
@@ -83,7 +86,10 @@ else floatView(config, 'docs', { x: 80, y: 60, width: 420, height: 520 });`;
 <HorizonLayout bind:config {views} />`;
 </script>
 
-<div class="page">
+<!-- A region that scrolls takes the focus, so the keyboard scrolls it too (WCAG 2.1.1; axe's
+scrollable-region-focusable). -->
+<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+<div class="page" role="region" aria-label={title} tabindex="0">
 	{#if kind === 'intro'}
 		<p>Every pane here is a tab group. Things to try:</p>
 		<ul>
@@ -152,13 +158,16 @@ else floatView(config, 'docs', { x: 80, y: 60, width: 420, height: 520 });`;
 		margin-top: 0.2rem;
 	}
 
+	/* Wrapped rather than scrolled: a scrolling block would have to take the focus too, one more
+	   Tab stop each, when the page around it already scrolls. */
 	pre {
 		margin: 0;
 		padding: 0.6rem 0.75rem;
 		border: 1px solid var(--hl-border);
 		border-radius: var(--hl-radius);
 		background: var(--hl-background);
-		overflow: auto;
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
 	}
 
 	code {
