@@ -25,6 +25,7 @@ function tabTitles(): string[] {
 }
 
 afterEach(() => {
+	vi.useRealTimers();
 	vi.restoreAllMocks();
 	localStorage.clear();
 	for (const frame of document.querySelectorAll('iframe')) frame.remove();
@@ -79,5 +80,22 @@ describe('demo page', () => {
 		expect(tabTitles()).toEqual(['Nested layout', 'Page 4']);
 		const save = screen.getByRole('checkbox', { name: 'Save to localStorage' }) as HTMLInputElement;
 		expect(save.checked).toBe(true);
+	});
+
+	it('saves the state while saving is on, and forgets it when turned off', async () => {
+		vi.useFakeTimers();
+		render(Page);
+		const save = screen.getByRole('checkbox', { name: 'Save to localStorage' });
+
+		await fireEvent.click(save);
+		await vi.advanceTimersByTimeAsync(250);
+		const saved = JSON.parse(localStorage.getItem('horizon-layout-demo-state')!);
+		expect(saved.persist).toBe(true);
+		expect(saved.theme).toBe('dark');
+
+		await fireEvent.click(screen.getByLabelText('Remove Usage'));
+		await fireEvent.click(save);
+		await vi.advanceTimersByTimeAsync(250);
+		expect(localStorage.getItem('horizon-layout-demo-state')).toBeNull();
 	});
 });

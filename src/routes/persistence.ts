@@ -40,14 +40,25 @@ export function loadDemoState(): DemoState | null {
 	}
 }
 
-/** Saves `state`, to be read back by `loadDemoState`. */
+/**
+ * Saves `state`, to be read back by `loadDemoState`. Best-effort: when storage is full or
+ * blocked, it warns and the demo goes on unsaved.
+ */
 export function saveDemoState(state: DemoState): void {
-	localStorage.setItem(STORAGE_KEY, JSON.stringify({ persist: true, ...state }));
+	try {
+		localStorage.setItem(STORAGE_KEY, JSON.stringify({ persist: true, ...state }));
+	} catch (error) {
+		console.warn('horizon-layout demo: the layout could not be saved', error);
+	}
 }
 
-/** Forgets the saved state. */
+/** Forgets the saved state. Best-effort, like `saveDemoState`. */
 export function clearDemoState(): void {
-	localStorage.removeItem(STORAGE_KEY);
+	try {
+		localStorage.removeItem(STORAGE_KEY);
+	} catch (error) {
+		console.warn('horizon-layout demo: the saved layout could not be removed', error);
+	}
 }
 
 /**

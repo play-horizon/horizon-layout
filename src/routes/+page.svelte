@@ -179,8 +179,6 @@
 		isDefaultBindings(kbBindings) ? {} : buildKeyboardControls(kbBindings, layout)
 	);
 
-	let saveHandle: ReturnType<typeof setTimeout> | null = null;
-
 	function currentState(): DemoState {
 		return {
 			config: cloneConfig(config),
@@ -216,24 +214,17 @@
 
 	function setPersist(enabled: boolean) {
 		persistLayout = enabled;
-		if (!enabled) {
-			if (saveHandle !== null) {
-				clearTimeout(saveHandle);
-				saveHandle = null;
-			}
-			clearDemoState();
-		}
+		if (!enabled) clearDemoState();
 	}
 
-	// Auto-save while persistence is enabled (debounced).
+	// Writes the state to storage, an external system, a moment after its last change while
+	// saving is on; it sets no state. The cleanup drops the pending write when the state changes
+	// again or saving is turned off.
 	$effect(() => {
 		if (!persistLayout) return;
 		const state = currentState();
-		if (saveHandle !== null) clearTimeout(saveHandle);
-		saveHandle = setTimeout(() => {
-			saveHandle = null;
-			if (persistLayout) saveDemoState(state);
-		}, 250);
+		const timer = setTimeout(() => saveDemoState(state), 250);
+		return () => clearTimeout(timer);
 	});
 
 	// Read once hydrated, not while the script first runs: the prerendered page holds the default
