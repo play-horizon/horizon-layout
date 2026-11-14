@@ -66,7 +66,13 @@
 	border-left: 1px solid var(--hl-border);
 }
 
+/* A maximised view is shown with no tab group around it: it takes what the tab group gives a docked
+   view, the background of its content and its scrolling, and the frame of the docked layout. */
 .horizon-layout__content--maximized {
+	box-sizing: border-box;
+	border: 1px solid var(--hl-border);
+	overflow: auto;
+	background: var(--hl-card);
 	animation: hl-fade-in 80ms ease;
 }
 
