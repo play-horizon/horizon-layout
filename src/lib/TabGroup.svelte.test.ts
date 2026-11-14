@@ -7,13 +7,11 @@
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { describe, expect, it } from 'vitest';
+import { fakeDataTransfer } from '../test/drag.ts';
 import LayoutHarness from '../test/LayoutHarness.svelte';
 import type { FloatingGroupConfig, LayoutConfig, SplitConfig } from './types.ts';
 
-/** A stand-in for the `DataTransfer` jsdom lacks, with what a tab drag uses. */
-function dataTransfer() {
-	return { dropEffect: 'none', effectAllowed: 'none', setDragImage: () => {} };
-}
+const dataTransfer = fakeDataTransfer;
 
 /** Starts dragging `tab`, and waits for the layout to take it out of its group. */
 async function startDrag(tab: HTMLElement) {

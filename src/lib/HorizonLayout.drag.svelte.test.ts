@@ -7,6 +7,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { flushSync } from 'svelte';
 import { describe, expect, it } from 'vitest';
+import { fakeDataTransfer } from '../test/drag.ts';
 import LayoutHarness from '../test/LayoutHarness.svelte';
 import type { LayoutConfig, SplitConfig } from './types.ts';
 
@@ -44,7 +45,7 @@ function renderLayout(initial: LayoutConfig) {
 
 /** What a drag event carries; jsdom has no DataTransfer. */
 function dataTransfer() {
-	return { dataTransfer: { effectAllowed: '', dropEffect: '', setDragImage: () => {} } };
+	return { dataTransfer: fakeDataTransfer() };
 }
 
 function nextFrame() {
@@ -75,6 +76,13 @@ async function dropOn(zone: Element) {
 }
 
 describe('dragging a tab', () => {
+	it('carries the view id as its data, which Firefox needs to start the drag', async () => {
+		renderLayout(twoPanes());
+		const transfer = fakeDataTransfer();
+		await fireEvent.dragStart(tab('Title of b'), { dataTransfer: transfer });
+		expect(transfer.data.get('application/x-horizon-layout-tab')).toBe('b');
+	});
+
 	it('takes it out of its group without changing the bound config until the drop', async () => {
 		const { state, container } = renderLayout(twoPanes());
 		await startDrag('Title of b');

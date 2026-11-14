@@ -780,6 +780,9 @@ groups they make, focus following a moved tab, and the popout windows' lifecycle
 	// from, and the frame that takes the tab out of its group until that frame has run.
 	let tabDrag: { source: EventTarget; startFrame: number | null } | null = null;
 
+	// The data type a tab drag carries, with the view id.
+	const TAB_DRAG_TYPE = 'application/x-horizon-layout-tab';
+
 	// Starts the drag of `tabId` from `tabGroup`, at the tab's dragstart.
 	function onStartTabDrag(event: DragEvent, tabGroup: TabGroupConfig, tabId: Id) {
 		// A new drag means the one before has ended, even if its end never reached us.
@@ -788,6 +791,8 @@ groups they make, focus following a moved tab, and the popout windows' lifecycle
 
 		if (event.dataTransfer) {
 			event.dataTransfer.effectAllowed = 'move';
+			// Firefox starts no drag whose dragstart sets no data.
+			event.dataTransfer.setData(TAB_DRAG_TYPE, tabId);
 			if (event.currentTarget instanceof HTMLElement) {
 				event.dataTransfer.setDragImage(
 					event.currentTarget,
