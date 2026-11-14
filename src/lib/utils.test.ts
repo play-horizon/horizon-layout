@@ -63,6 +63,10 @@ describe('buildNodeParentMap', () => {
 		expect(map.get(inner.views[0])).toEqual({ parent: inner, index: 0 });
 		expect(map.get(inner.views[1])).toEqual({ parent: inner, index: 1 });
 	});
+
+	it('returns an empty map for a lone tab group', () => {
+		expect(buildNodeParentMap({ tabs: ['a'], activeTabIndex: 0 }).size).toBe(0);
+	});
 });
 
 describe('validateConfig', () => {
@@ -415,8 +419,9 @@ describe('cloneConfig', () => {
 		expect(config.popouts).toEqual(['b']);
 	});
 
-	it('drops an empty popouts array', () => {
+	it('drops empty popouts and floating arrays', () => {
 		expect(cloneConfig({ popouts: [] })).toEqual({});
+		expect(cloneConfig({ floating: [] })).toEqual({});
 		expect(cloneConfig({})).toEqual({});
 	});
 });
@@ -679,6 +684,18 @@ describe('removeView', () => {
 		expect(config.root).toEqual({ tabs: ['a', 'c'], activeTabIndex: 1 });
 		removeView(config, 'c');
 		expect(config.root).toEqual({ tabs: ['a'], activeTabIndex: 0 });
+	});
+
+	it('keeps the active tab when a tab before it leaves', () => {
+		const config: LayoutConfig = { root: { tabs: ['a', 'b', 'c'], activeTabIndex: 2 } };
+		removeView(config, 'a');
+		expect(config.root).toEqual({ tabs: ['b', 'c'], activeTabIndex: 1 });
+	});
+
+	it('does nothing for a view the layout does not show', () => {
+		const config: LayoutConfig = { ...threePaneConfig(), popouts: ['e'], maximizedView: 'a' };
+		removeView(config, 'x');
+		expect(config).toEqual({ ...threePaneConfig(), popouts: ['e'], maximizedView: 'a' });
 	});
 
 	it('takes a view out of a floating group, the popouts and the maximized view', () => {
