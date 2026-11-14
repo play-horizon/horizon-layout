@@ -1,3 +1,9 @@
+<!--
+@component
+A second HorizonLayout inside a page of the main one, with its own theme and options in its own
+sidebar. Like the main page, its sidebar moves above the layout when space runs out, but measured
+on this pane's own box (a container query) rather than the viewport, since the pane can be any size.
+-->
 <script lang="ts" module>
 	import type { Id, LayoutConfig, View } from '#lib/types.js';
 	import { SvelteMap } from 'svelte/reactivity';
@@ -6,12 +12,10 @@
 	import InteractionOptions from './InteractionOptions.svelte';
 	import ConstraintOptions from './ConstraintOptions.svelte';
 	import { ratioFormats, type RatioFormat } from './ratio-formats.js';
+	import { translations } from './translations.js';
 </script>
 
 <script lang="ts">
-	// Like the main demo page, but responsive to *this tab's own box* rather
-	// than the viewport: the nested layout lives inside a pane that can be any
-	// size, so we use a container query instead of an orientation media query.
 	let nestedConfig: LayoutConfig = $state({
 		root: {
 			direction: 'horizontal',
@@ -82,8 +86,8 @@
 				<section class="nested-section">
 					<h2>Theme</h2>
 					<select
-						id="nested-theme-select"
 						class="nested-select"
+						aria-label="Nested layout theme"
 						value={nestedTheme}
 						onchange={(e) => (nestedTheme = (e.currentTarget as HTMLSelectElement).value)}
 					>
@@ -94,7 +98,7 @@
 				</section>
 
 				<ConstraintOptions
-					config={nestedConfig}
+					bind:config={nestedConfig}
 					bind:minWidthRatio
 					bind:minHeightRatio
 					bind:maxDepth
@@ -106,6 +110,7 @@
 			<HorizonLayout
 				bind:config={nestedConfig}
 				views={nestedViews}
+				{translations}
 				{showSplitRatio}
 				{disableResizeSplits}
 				{disableDragAndDrop}

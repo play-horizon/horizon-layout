@@ -14,7 +14,9 @@ license. Bug reports, fixes, docs and new keyboard controls are all welcome.
 
 ## Setup
 
-Requirements: Node.js 22 and pnpm 10 (the versions CI uses).
+Requirements: Node.js 24 and pnpm 12 (the versions CI uses: `.node-version` and the
+`packageManager` field of `package.json`). pnpm refuses to install with a Node older than 24.2
+(`devEngines` in `package.json`); apps that install the package aren't affected.
 
 ```sh
 git clone https://github.com/play-horizon/horizon-layout.git
@@ -30,7 +32,7 @@ Run these before opening a pull request; CI runs the same commands.
 ```sh
 pnpm check      # svelte-check type checking
 pnpm lint       # oxlint + oxfmt --check
-pnpm test       # Vitest unit tests
+pnpm test       # Vitest unit and component tests
 pnpm build      # builds the demo and packages the library
 ```
 
@@ -39,9 +41,12 @@ pnpm build      # builds the demo and packages the library
 ## Pull requests
 
 - Branch from `main` and keep one logical change per pull request.
-- Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/):
-  `fix: keep focus on the tab after a drop`, `docs: document maximizedView`.
-- Add or update tests in `src/lib/*.test.ts` when you change `utils.ts`.
+- Commit subjects are `TYPE: summary`, under 50 characters, with one of the types `FEAT`,
+  `FIX`, `DOCS`, `STYLE`, `REFACTOR`, `PERF`, `TEST`, `BUILD`, `CI` or `CHORE`:
+  `FIX: keep focus on the tab after a drop`, `DOCS: document maximizedView`. Add a short body
+  only when the why isn't obvious.
+- Add or update tests with every change: unit tests in `src/lib/*.test.ts`, component tests in
+  `src/lib/*.svelte.test.ts` (rendered through `src/test/LayoutHarness.svelte`).
 - Every pull request is reviewed by at least one maintainer before it is
   merged. An automated AI review may also comment; maintainers decide which of
   its suggestions apply.

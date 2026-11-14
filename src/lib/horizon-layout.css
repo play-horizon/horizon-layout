@@ -1,3 +1,9 @@
+/*
+ * The default theme of HorizonLayout, exported as `horizon-layout/horizon-layout.css`: colour and
+ * size variables (`--hl-*`, dark by default, light under `.light`) and the rules that style the
+ * BEM classes the components emit under the default `baseClass`. The components carry only the
+ * inline styles they need to work; everything visual is here, and an app may replace it whole.
+ */
 :root {
 	--hl-background: #111624;
 	--hl-foreground: #f1f5f9;
@@ -14,6 +20,7 @@
 	--hl-tab-inactive-color: color-mix(in oklch, #8192b0 88%, transparent);
 	--hl-drop-hint-border: color-mix(in oklch, #598dff 80%, transparent);
 	--hl-drop-hint-bg: color-mix(in oklch, #598dff 12%, transparent);
+	--hl-floating-shadow: 0 12px 32px oklch(0 0 0 / 0.45);
 }
 
 .light {
@@ -30,6 +37,7 @@
 	--hl-tab-inactive-color: color-mix(in oklch, #59687f 93%, transparent);
 	--hl-drop-hint-border: color-mix(in oklch, #265de9 80%, transparent);
 	--hl-drop-hint-bg: color-mix(in oklch, #265de9 12%, transparent);
+	--hl-floating-shadow: 0 12px 32px oklch(0.2 0.02 255 / 0.18);
 }
 
 .horizon-layout {
@@ -46,6 +54,16 @@
 	width: 100%;
 	height: 100%;
 	overflow: hidden;
+}
+
+/* Every edge is drawn once, so two panes meet on a single line: each docked tab group draws its
+   right and bottom borders, which are the lines to its neighbours (or the layout's own right and
+   bottom edges), and the docked layout draws the left and top ones. Two borders side by side
+   would read as a double line at fractional device pixel ratios. */
+.horizon-layout__content--docked {
+	box-sizing: border-box;
+	border-top: 1px solid var(--hl-border);
+	border-left: 1px solid var(--hl-border);
 }
 
 .horizon-layout__content--maximized {
@@ -97,7 +115,6 @@
 	align-items: center;
 	justify-content: center;
 	z-index: 2;
-	touch-action: none;
 	outline: none;
 }
 
@@ -139,7 +156,7 @@
 	width: calc(100% - 16px);
 }
 
-.horizon-layout-split__resizer-handle--hover::before,
+.horizon-layout-split__resizer-handle:hover::before,
 .horizon-layout-split__resizer-handle--active::before {
 	opacity: 1;
 }
@@ -190,7 +207,8 @@
 	min-height: 0;
 	overflow: hidden;
 	box-sizing: border-box;
-	border: 1px solid var(--hl-border);
+	border-right: 1px solid var(--hl-border);
+	border-bottom: 1px solid var(--hl-border);
 	background: var(--hl-card);
 }
 
@@ -215,7 +233,6 @@
 	overflow-x: auto;
 	overflow-y: hidden;
 	scrollbar-width: none;
-	outline: none;
 }
 
 .horizon-layout-tabgroup__tab {
@@ -232,6 +249,9 @@
 	background: transparent;
 	border-radius: var(--hl-radius);
 	color: var(--hl-tab-inactive-color);
+	/* No text selection, so a long press lifts the tab on a touch screen; Safari reads only the
+	   prefixed property. No panning either, which would cancel the drag. */
+	-webkit-user-select: none;
 	user-select: none;
 	touch-action: none;
 	outline: none;
@@ -259,28 +279,13 @@
 	background: color-mix(in oklch, var(--hl-border) 18%, transparent);
 }
 
-.horizon-layout-tabgroup__tab-active-fill {
-	position: absolute;
-	bottom: -1px;
-	left: 0;
-	right: 0;
-	height: 1px;
-	background: var(--hl-secondary);
-	pointer-events: none;
-}
-
-.horizon-layout-tabgroup__tabs:focus-visible .horizon-layout-tabgroup__tab--active {
+/* The tab list, out of sight, has the focus: its ring is drawn on the active tab. */
+.horizon-layout-tabgroup__tablist:focus-visible ~ .horizon-layout-tabgroup__tab--active {
 	outline: 2px solid var(--hl-ring);
 	outline-offset: -2px;
 	border-radius: 4px;
 	background: var(--hl-accent);
 	color: var(--hl-foreground);
-}
-
-.horizon-layout-tabgroup__tabs:focus-visible
-	.horizon-layout-tabgroup__tab--active
-	.horizon-layout-tabgroup__tab-active-fill {
-	background: var(--hl-accent);
 }
 
 .horizon-layout-tabgroup__tab-title {
@@ -447,6 +452,31 @@
 	flex: 1;
 	min-height: 0;
 	overflow: hidden;
+}
+
+.horizon-layout-floating {
+	box-sizing: border-box;
+	border-radius: var(--hl-radius);
+	box-shadow: var(--hl-floating-shadow);
+	outline: none;
+}
+
+.horizon-layout-floating > .horizon-layout-tabgroup {
+	border: 1px solid var(--hl-border);
+	border-radius: inherit;
+}
+
+.horizon-layout-floating:focus-visible {
+	outline: 2px solid var(--hl-ring);
+	outline-offset: 1px;
+}
+
+.horizon-layout-floating .horizon-layout-tabgroup__tab-bar {
+	cursor: move;
+}
+
+.horizon-layout-floating .horizon-layout-tabgroup__tab {
+	cursor: default;
 }
 
 @keyframes hl-fade-in {

@@ -7,4 +7,5 @@
 - [ ] `pnpm check`
 - [ ] `pnpm lint`
 - [ ] `pnpm test`
+- [ ] `pnpm build`
 - [ ] Tried in the demo (`pnpm dev`)

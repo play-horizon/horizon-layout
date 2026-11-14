@@ -1,14 +1,29 @@
+<!-- @component
+A split: its panes side by side (`horizontal`) or stacked (`vertical`), each a LayoutNode, with a
+resize handle between each two of them, moved with the pointer or the split keyboard controls, and
+an optional ratio label. Each handle is a WAI-ARIA window splitter: a focusable `separator` whose
+value is its position in the split and which controls the pane before it, its primary pane.
+Internal to HorizonLayout, rendered by LayoutNode.
+-->
 <script lang="ts">
 	import type { SvelteMap } from 'svelte/reactivity';
-	import type { View, Id, SplitConfig, KeyboardControls, TabGroupConfig } from './types.ts';
-	import { getModifier } from './internal-utils.ts';
+	import type {
+		View,
+		Id,
+		SplitConfig,
+		KeyboardControls,
+		LayoutTranslations,
+		TabGroupConfig
+	} from './types.ts';
+	import { findControl, roundSplitPoint } from './internal-utils.ts';
 	import HorizonLayoutNode from './LayoutNode.svelte';
-	import { type Snippet } from 'svelte';
+	import { onDestroy, type Snippet } from 'svelte';
 	import type { DropTarget } from './internal-types.ts';
 
 	let {
 		config = $bindable(),
 		views,
+		translations,
 		tabgroupControls,
 		disableResizeSplits,
 		disableDragAndDrop,
@@ -17,7 +32,6 @@
 		onHoverEnter,
 		onHoverExit,
 		canDrop,
-		remainingDepth,
 		showSplitRatio,
 		minWidthRatio,
 		minHeightRatio,
@@ -25,10 +39,12 @@
 		keyboardControls,
 		formatRatio,
 		formatRatioForAria,
-		baseClass
+		baseClass,
+		registerTabList
 	}: {
 		config: SplitConfig;
 		views: SvelteMap<Id, View>;
+		translations: LayoutTranslations;
 		tabgroupControls: Snippet<[Id]>[];
 		disableResizeSplits: boolean;
 		disableDragAndDrop: boolean;
@@ -37,22 +53,33 @@
 		onHoverEnter: (tabGroup: TabGroupConfig, target: DropTarget) => void;
 		onHoverExit: (tabGroup: TabGroupConfig) => void;
 		canDrop: (tabGroup: TabGroupConfig, target: DropTarget) => boolean;
-		remainingDepth: number;
 		showSplitRatio: boolean;
 		minWidthRatio: number;
 		minHeightRatio: number;
 		hideTabBar: boolean;
-		keyboardControls: KeyboardControls;
+		keyboardControls: Required<KeyboardControls>;
 		formatRatio: (ratio: number) => string;
 		formatRatioForAria: (ratio: number) => number;
 		baseClass: string;
+		registerTabList: (config: TabGroupConfig, element: HTMLElement) => () => void;
 	} = $props();
 
 	let splitContainer = $state<HTMLElement | null>(null);
 
+	const uid = $props.id();
+
+	/** The id of the pane at `index`, the primary pane of the handle after it. */
+	function paneId(index: number): string {
+		return `${uid}-pane-${index}`;
+	}
+
 	let activeResizer = $state<number | null>(null);
 
 	let isHorizontal = $derived(config.direction === 'horizontal');
+	// A separator's orientation is its own: the handle between panes side by side is vertical.
+	let handleOrientation: SplitConfig['direction'] = $derived(
+		isHorizontal ? 'vertical' : 'horizontal'
+	);
 	let minRatio = $derived(isHorizontal ? minWidthRatio : minHeightRatio);
 
 	let posConstraints = $derived(
@@ -69,53 +96,53 @@
 		})
 	);
 
+	// Ends the resize in progress: one at a time, a new press ending the one before, so a gesture
+	// whose end was missed can't linger.
+	let endResize: (() => void) | null = null;
+	onDestroy(() => endResize?.());
+
 	function startResize(event: PointerEvent, index: number) {
+		if (disableResizeSplits || event.button !== 0) return;
 		event.preventDefault();
 		event.stopPropagation();
-		if (disableResizeSplits) return;
+		endResize?.();
 
-		const target = event.currentTarget as HTMLElement;
-		target.setPointerCapture(event.pointerId);
-		activeResizer = index;
-
+		const handle = event.currentTarget as HTMLElement;
+		const { pointerId } = event;
 		const rect = splitContainer!.getBoundingClientRect();
 
-		function move(event: PointerEvent) {
-			const ratio = isHorizontal
-				? (event.clientX - rect.left) / rect.width
-				: (event.clientY - rect.top) / rect.height;
+		const move = (moveEvent: PointerEvent) => {
+			if (moveEvent.pointerId !== pointerId) return;
+			const size = isHorizontal ? rect.width : rect.height;
+			if (size <= 0) return;
+			const offset = isHorizontal ? moveEvent.clientX - rect.left : moveEvent.clientY - rect.top;
 			const { min, max } = posConstraints[index]!;
-			const clamped = Number(Math.min(Math.max(ratio, min), max).toFixed(4));
+			const clamped = roundSplitPoint(Math.min(Math.max(offset / size, min), max));
 			if (clamped !== config.splitPoints[index]) config.splitPoints[index] = clamped;
-		}
-
-		function stop(event: PointerEvent) {
+		};
+		// Fired after pointerup and pointercancel, and whenever else the handle loses the capture.
+		const end = (endEvent: PointerEvent) => {
+			if (endEvent.pointerId === pointerId) endResize?.();
+		};
+		handle.addEventListener('pointermove', move);
+		handle.addEventListener('lostpointercapture', end);
+		endResize = () => {
+			handle.removeEventListener('pointermove', move);
+			handle.removeEventListener('lostpointercapture', end);
+			if (handle.hasPointerCapture(pointerId)) handle.releasePointerCapture(pointerId);
 			activeResizer = null;
-			if (target.hasPointerCapture(event.pointerId)) {
-				target.releasePointerCapture(event.pointerId);
-			}
-			target.removeEventListener('pointermove', move);
-			target.removeEventListener('pointerup', stop);
-			target.removeEventListener('pointercancel', stop);
-		}
-
-		target.addEventListener('pointermove', move);
-		target.addEventListener('pointerup', stop);
-		target.addEventListener('pointercancel', stop);
+			endResize = null;
+		};
+		handle.setPointerCapture(pointerId);
+		activeResizer = index;
 	}
 
 	function handleKeyDown(event: KeyboardEvent, index: number) {
-		const modifier = getModifier(event);
-		for (const control of keyboardControls.splitControls ?? []) {
-			for (const shortcut of control.shortcuts) {
-				if (modifier === (shortcut.modifier ?? null) && event.key === shortcut.key) {
-					event.preventDefault();
-					event.stopPropagation();
-					control.action({ config, index }, event);
-					return;
-				}
-			}
-		}
+		const control = findControl(keyboardControls.splitControls, event);
+		if (!control) return;
+		event.preventDefault();
+		event.stopPropagation();
+		control.action({ config, index }, event);
 	}
 </script>
 
@@ -127,12 +154,14 @@
 	{#each config.views as view, i (view)}
 		{@const splitPoint = config.splitPoints[i]}
 		<div
+			id={paneId(i)}
 			class="{baseClass}-split__pane {baseClass}-split__pane--{config.direction}"
 			style={`flex: ${(splitPoint ?? 1) - (config.splitPoints[i - 1] ?? 0)} 1 0 !important;`}
 		>
 			<HorizonLayoutNode
 				bind:config={config.views[i]!}
 				{views}
+				{translations}
 				{tabgroupControls}
 				{disableResizeSplits}
 				{disableDragAndDrop}
@@ -141,7 +170,6 @@
 				{onHoverExit}
 				{canDrop}
 				{isDragging}
-				{remainingDepth}
 				{showSplitRatio}
 				{minWidthRatio}
 				{minHeightRatio}
@@ -150,6 +178,7 @@
 				{formatRatio}
 				{formatRatioForAria}
 				{baseClass}
+				{registerTabList}
 			></HorizonLayoutNode>
 		</div>
 
@@ -161,14 +190,19 @@
 					? ` ${baseClass}-split__resizer--active`
 					: ''}"
 			>
+				<!-- A focusable separator is a widget (WAI-ARIA window splitter), which Svelte's a11y
+				checks take for the static separator role. -->
+				<!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
 				<span
 					class="{baseClass}-split__resizer-handle {baseClass}-split__resizer-handle--{config.direction}{isActive
 						? ` ${baseClass}-split__resizer-handle--active`
 						: ''}"
-					role="slider"
+					role="separator"
 					tabindex={0}
-					aria-label="Resize pane {i + 1}"
-					aria-orientation={config.direction}
+					style:touch-action="none"
+					aria-label={translations.resizePane(i + 1)}
+					aria-controls={paneId(i)}
+					aria-orientation={handleOrientation}
 					aria-valuemin={formatRatioForAria(constraints.min)}
 					aria-valuemax={formatRatioForAria(constraints.max)}
 					aria-valuenow={formatRatioForAria(splitPoint!)}

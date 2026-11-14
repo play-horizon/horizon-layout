@@ -1,16 +1,23 @@
+<!--
+@component
+The split constraints of a HorizonLayout: the minimum pane width and height and the maximum split
+depth. A minimum some split can't satisfy, or a depth the layout is already deeper than, is
+refused with a notice; an accepted minimum moves the config's split points back into range, so
+the layout never shows its error state.
+-->
 <script lang="ts">
 	import type { LayoutConfig, NodeConfig, SplitConfig } from '#lib/types.js';
 	import { nodeConfigType } from '#lib/utils.js';
+	import { MAX_DEPTH, MAX_MIN_RATIO, MIN_DEPTH } from './constraints.js';
+	import { depthOf } from './layout-tree.js';
 
-	// Split constraint fields for a HorizonLayout instance, without the
-	// interaction toggles — lets layouts place interaction and constraints
-	// in separate columns.
 	let {
-		config,
+		config = $bindable(),
 		minWidthRatio = $bindable(),
 		minHeightRatio = $bindable(),
 		maxDepth = $bindable()
 	}: {
+		/** The layout whose split points move back into range, in place, when a minimum grows. */
 		config: LayoutConfig;
 		minWidthRatio: number;
 		minHeightRatio: number;
@@ -66,34 +73,48 @@
 		return feasible;
 	}
 
-	function onMinWidthChanged(value: number) {
-		const previous = minWidthRatio;
-		const clamped = Math.min(Math.max(value, 0), 0.45);
-		minWidthRatio = clamped;
-		if (!feasibleMinRatio(clamped, 'horizontal')) {
+	// Each handler leaves the field showing the value in effect, which differs from the typed one
+	// when it was clamped or refused.
+	function onMinWidthChanged(input: HTMLInputElement) {
+		const value = clampRatio(Number(input.value));
+		if (feasibleMinRatio(value, 'horizontal')) {
+			notice = '';
+			minWidthRatio = value;
+			renormalizeSplitPoints();
+		} else {
 			notice = 'Too large: some splits could not satisfy this minimum width';
-			minWidthRatio = previous;
-			return;
 		}
-		notice = '';
-		renormalizeSplitPoints();
+		input.value = String(minWidthRatio);
 	}
 
-	function onMinHeightChanged(value: number) {
-		const previous = minHeightRatio;
-		const clamped = Math.min(Math.max(value, 0), 0.45);
-		minHeightRatio = clamped;
-		if (!feasibleMinRatio(clamped, 'vertical')) {
+	function onMinHeightChanged(input: HTMLInputElement) {
+		const value = clampRatio(Number(input.value));
+		if (feasibleMinRatio(value, 'vertical')) {
+			notice = '';
+			minHeightRatio = value;
+			renormalizeSplitPoints();
+		} else {
 			notice = 'Too large: some splits could not satisfy this minimum height';
-			minHeightRatio = previous;
-			return;
 		}
-		notice = '';
-		renormalizeSplitPoints();
+		input.value = String(minHeightRatio);
 	}
 
-	function onMaxDepthChanged(value: number) {
-		maxDepth = Math.round(Math.min(Math.max(value, 1), 10));
+	function onMaxDepthChanged(input: HTMLInputElement) {
+		const value = Math.round(Math.min(Math.max(Number(input.value), MIN_DEPTH), MAX_DEPTH));
+		const depth = config.root ? depthOf(config.root) : 0;
+		if (value >= depth) {
+			notice = '';
+			maxDepth = value;
+		} else {
+			notice = `Too small: the layout is ${depth} deep`;
+		}
+		input.value = String(maxDepth);
+	}
+
+	// At the 4-decimal precision the layout takes a minimum ratio at, so the split points kept
+	// here meet the minimum as the layout checks it.
+	function clampRatio(value: number): number {
+		return Number(Math.min(Math.max(value, 0), MAX_MIN_RATIO).toFixed(4));
 	}
 </script>
 
@@ -105,10 +126,10 @@
 			class="input"
 			type="number"
 			min="0"
-			max="0.45"
+			max={MAX_MIN_RATIO}
 			step="0.05"
 			value={minWidthRatio}
-			onchange={(e) => onMinWidthChanged(Number((e.currentTarget as HTMLInputElement).value))}
+			onchange={(e) => onMinWidthChanged(e.currentTarget)}
 		/>
 	</label>
 	<label class="field">
@@ -117,10 +138,10 @@
 			class="input"
 			type="number"
 			min="0"
-			max="0.45"
+			max={MAX_MIN_RATIO}
 			step="0.05"
 			value={minHeightRatio}
-			onchange={(e) => onMinHeightChanged(Number((e.currentTarget as HTMLInputElement).value))}
+			onchange={(e) => onMinHeightChanged(e.currentTarget)}
 		/>
 	</label>
 	<label class="field">
@@ -128,14 +149,14 @@
 		<input
 			class="input"
 			type="number"
-			min="1"
-			max="10"
+			min={MIN_DEPTH}
+			max={MAX_DEPTH}
 			step="1"
 			value={maxDepth}
-			onchange={(e) => onMaxDepthChanged(Number((e.currentTarget as HTMLInputElement).value))}
+			onchange={(e) => onMaxDepthChanged(e.currentTarget)}
 		/>
 	</label>
-	{#if notice}<p class="lo-notice">{notice}</p>{/if}
+	{#if notice}<p class="lo-notice" role="alert">{notice}</p>{/if}
 </section>
 
 <style>
@@ -176,6 +197,6 @@
 	.lo-notice {
 		margin: 0;
 		font-size: 0.7rem;
-		color: oklch(0.72 0.15 85);
+		color: var(--demo-warning);
 	}
 </style>
