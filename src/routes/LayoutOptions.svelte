@@ -7,7 +7,7 @@
 	// Shared config sidebar for a HorizonLayout instance: interaction toggles,
 	// split constraints and the split-ratio display format.
 	let {
-		config,
+		config = $bindable(),
 		showSplitRatio = $bindable(),
 		disableResizeSplits = $bindable(),
 		disableDragAndDrop = $bindable(),
@@ -39,4 +39,4 @@
 	bind:skipValidation
 	bind:ratioFormat
 />
-<ConstraintOptions {config} bind:minWidthRatio bind:minHeightRatio bind:maxDepth />
+<ConstraintOptions bind:config bind:minWidthRatio bind:minHeightRatio bind:maxDepth />

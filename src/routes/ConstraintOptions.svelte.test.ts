@@ -31,6 +31,9 @@ function renderOptions() {
 			get config() {
 				return state.config;
 			},
+			set config(value) {
+				state.config = value;
+			},
 			get minWidthRatio() {
 				return state.minWidthRatio;
 			},

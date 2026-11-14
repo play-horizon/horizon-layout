@@ -95,7 +95,7 @@
 				</section>
 
 				<ConstraintOptions
-					config={nestedConfig}
+					bind:config={nestedConfig}
 					bind:minWidthRatio
 					bind:minHeightRatio
 					bind:maxDepth

@@ -329,7 +329,7 @@
 			</section>
 
 			<LayoutOptions
-				{config}
+				bind:config
 				bind:showSplitRatio
 				bind:disableResizeSplits
 				bind:disableDragAndDrop

@@ -7,7 +7,7 @@
 	// interaction toggles — lets layouts place interaction and constraints
 	// in separate columns.
 	let {
-		config,
+		config = $bindable(),
 		minWidthRatio = $bindable(),
 		minHeightRatio = $bindable(),
 		maxDepth = $bindable()
