@@ -14,7 +14,10 @@ export type SplitDirection = 'horizontal' | 'vertical';
 
 /** Everything HorizonLayout needs to know about a single panel's content. */
 export interface View {
-	/** The tab's label, the popout window's title and the floating group's accessible name. */
+	/**
+	 * The tab's label, the popout window's title, and the accessible name of the maximized view
+	 * and (through `translations.floatingPanel`) of the floating group showing it.
+	 */
 	title: string;
 	/** The panel body, rendered inside the active tab's content area. */
 	snippet: Snippet;

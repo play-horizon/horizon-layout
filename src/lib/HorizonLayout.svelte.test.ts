@@ -62,6 +62,13 @@ describe('HorizonLayout', () => {
 		expect(screen.getByRole('slider').getAttribute('aria-label')).toBe('Resize pane 1');
 	});
 
+	it('shows a maximized view alone, in a region named by its title', () => {
+		renderLayout({ ...twoPanes(), maximizedView: 'c' });
+		const region = screen.getByRole('region', { name: 'Title of c' });
+		expect(region.textContent?.trim()).toBe('Body of c');
+		expect(screen.queryByRole('tablist')).toBeNull();
+	});
+
 	it('keeps the panels whose place is unchanged mounted when the config changes outside', () => {
 		const state = renderLayout(twoPanes());
 		const second = (state.config.root as SplitConfig).views[1] as TabGroupConfig;

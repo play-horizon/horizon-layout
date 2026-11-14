@@ -1060,7 +1060,11 @@
 	{#if internalConfig}
 		{#if internalConfig.maximizedView}
 			{@const view = views.get(internalConfig.maximizedView)}
-			<div class="{baseClass}__content {baseClass}__content--maximized" aria-label={view?.title}>
+			<div
+				class="{baseClass}__content {baseClass}__content--maximized"
+				role="region"
+				aria-label={view?.title}
+			>
 				{@render view?.snippet()}
 			</div>
 		{:else}
