@@ -92,6 +92,7 @@ Split renders one for each of its panes.
 	<HorizonTabGroup
 		bind:config={config as TabGroupConfig}
 		{views}
+		{translations}
 		disableDrag={disableDragAndDrop}
 		{isDragging}
 		{onStartTabDrag}

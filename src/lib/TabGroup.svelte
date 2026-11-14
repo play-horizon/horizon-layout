@@ -6,7 +6,7 @@ its tabs, and on its four sides to split it) and reports the one under the point
 Internal to HorizonLayout, rendered by LayoutNode for a docked group and by FloatingGroup.
 -->
 <script lang="ts">
-	import type { Id, KeyboardControl, TabGroupConfig, View } from './types.ts';
+	import type { Id, KeyboardControl, LayoutTranslations, TabGroupConfig, View } from './types.ts';
 	import { onDestroy, type Snippet } from 'svelte';
 	import { findControl } from './internal-utils.ts';
 	import type { SvelteMap } from 'svelte/reactivity';
@@ -15,6 +15,7 @@ Internal to HorizonLayout, rendered by LayoutNode for a docked group and by Floa
 	let {
 		config = $bindable(),
 		views,
+		translations,
 		disableDrag,
 		isDragging,
 		onStartTabDrag,
@@ -30,6 +31,7 @@ Internal to HorizonLayout, rendered by LayoutNode for a docked group and by Floa
 	}: {
 		config: TabGroupConfig;
 		views: SvelteMap<Id, View>;
+		translations: LayoutTranslations;
 		disableDrag: boolean;
 		isDragging: boolean;
 		onStartTabDrag: (event: DragEvent, tabGroup: TabGroupConfig, tabId: Id) => void;
@@ -153,6 +155,7 @@ Internal to HorizonLayout, rendered by LayoutNode for a docked group and by Floa
 			<!-- Tab list - keyboard navigation is handled on the list container. -->
 			<div
 				role="tablist"
+				aria-label={translations.tabList(views.get(activeTab ?? '')?.title ?? '')}
 				tabindex={0}
 				class="{baseClass}__tabs"
 				style:touch-action={onMoveStart ? 'none' : undefined}

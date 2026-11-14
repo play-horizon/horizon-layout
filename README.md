@@ -177,7 +177,8 @@ is left in another language:
 	{views}
 	translations={{
 		resizePane: (pane) => m.resizePane({ pane }),
-		floatingPanel: (title) => m.floatingPanel({ title })
+		floatingPanel: (title) => m.floatingPanel({ title }),
+		tabList: (title) => m.tabList({ title })
 	}}
 />
 ```
@@ -192,6 +193,9 @@ interface LayoutTranslations {
 	// Accessible name of a floating group's frame, given the title of its active tab:
 	// "Docs, floating panel".
 	floatingPanel: (title: string) => string;
+	// Accessible name of a tab group's tab list, given the title of its active tab:
+	// "Tabs, Files shown".
+	tabList: (title: string) => string;
 }
 ```
 

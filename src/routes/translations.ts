@@ -8,5 +8,6 @@ import type { LayoutTranslations } from '#lib/types.js';
 /** The English text of both layouts. */
 export const translations: LayoutTranslations = {
 	resizePane: (pane) => `Resize pane ${pane}`,
-	floatingPanel: (title) => `${title}, floating panel`
+	floatingPanel: (title) => `${title}, floating panel`,
+	tabList: (title) => `Tabs, ${title} shown`
 };

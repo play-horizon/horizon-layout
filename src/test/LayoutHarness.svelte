@@ -44,7 +44,8 @@ A HorizonLayout for the component tests: one view per id, titled "Title of <id>"
 
 	const translations = {
 		resizePane: (pane: number) => `Resize pane ${pane}`,
-		floatingPanel: (title: string) => `${title}, floating`
+		floatingPanel: (title: string) => `${title}, floating`,
+		tabList: (title: string) => `Tabs, ${title} shown`
 	};
 </script>
 

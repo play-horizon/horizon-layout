@@ -70,6 +70,15 @@ function zoneOf(group: HTMLElement, modifier: string): HTMLElement {
 }
 
 describe('tab groups', () => {
+	it('name their tab list with the translations, from the active tab', async () => {
+		const state = renderGroup();
+		expect(screen.getByRole('tablist', { name: 'Tabs, Title of b shown' })).toBeTruthy();
+
+		state.config.root = { tabs: ['a', 'b', 'c'], activeTabIndex: 2 };
+		await tick();
+		expect(screen.getByRole('tablist', { name: 'Tabs, Title of c shown' })).toBeTruthy();
+	});
+
 	it('mark the active tab selected, point the tab list at it and label the panel with it', () => {
 		renderGroup();
 		const tabList = screen.getByRole('tablist');

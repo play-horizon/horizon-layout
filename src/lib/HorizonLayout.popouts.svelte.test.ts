@@ -46,7 +46,8 @@ function renderLayout(
 			views,
 			translations: {
 				resizePane: (pane: number) => `Resize pane ${pane}`,
-				floatingPanel: (title: string) => `${title}, floating`
+				floatingPanel: (title: string) => `${title}, floating`,
+				tabList: (title: string) => `Tabs, ${title} shown`
 			},
 			...callbacks
 		}

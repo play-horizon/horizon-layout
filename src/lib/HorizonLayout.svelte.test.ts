@@ -1,7 +1,8 @@
 /**
  * Component tests of HorizonLayout, rendered in jsdom through `LayoutHarness` (src/test): what it
- * renders, its accessible names, how it applies config changes and rejects invalid ones, and its
- * built-in keyboard controls on docked tab groups and split handles, focus following moved tabs.
+ * renders, its accessible names (English by default, or the translations passed), how it applies
+ * config changes and rejects invalid ones, and its built-in keyboard controls on docked tab groups
+ * and split handles, focus following moved tabs.
  * @module
  */
 import { fireEvent, render, screen } from '@testing-library/svelte';
@@ -11,12 +12,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeDataTransfer } from '../test/drag.ts';
 import LayoutHarness from '../test/LayoutHarness.svelte';
 import HorizonLayout from './HorizonLayout.svelte';
+import { englishTranslations } from './translations.ts';
 import { mounts } from '../test/ViewBody.svelte';
 import { removeView, validateConfig } from './utils.ts';
 import type {
 	Id,
 	KeyboardControls,
 	LayoutConfig,
+	LayoutTranslations,
 	SplitConfig,
 	TabGroupConfig,
 	View
@@ -324,6 +327,77 @@ describe('outside changes', () => {
 	});
 });
 
+describe('translations', () => {
+	/**
+	 * Renders a split of two views, with a floating group, given
+	 * `translations` when defined, and returns every text the layout writes.
+	 */
+	function renderTexts(translations?: Partial<LayoutTranslations>) {
+		const snippet = createRawSnippet(() => ({ render: () => '<p>Body</p>' }));
+		const views = new SvelteMap<Id, View>([
+			['a', { title: 'Files', snippet }],
+			['b', { title: 'Docs', snippet }],
+			['c', { title: 'Search', snippet }]
+		]);
+		const config: LayoutConfig = {
+			root: {
+				direction: 'horizontal',
+				views: [
+					{ tabs: ['a'], activeTabIndex: 0 },
+					{ tabs: ['b'], activeTabIndex: 0 }
+				],
+				splitPoints: [0.5]
+			},
+			floating: [{ tabs: ['c'], activeTabIndex: 0, rect: { x: 0, y: 0, width: 300, height: 200 } }]
+		};
+		render(HorizonLayout, {
+			props: translations === undefined ? { config, views } : { config, views, translations }
+		});
+		return {
+			separator: screen.getByRole('slider').getAttribute('aria-label'),
+			tabLists: screen.getAllByRole('tablist').map((list) => list.getAttribute('aria-label')),
+			floatingPanel: screen.getByRole('dialog').getAttribute('aria-label')
+		};
+	}
+
+	it('are English when none are passed', () => {
+		expect(renderTexts()).toEqual({
+			separator: 'Resize pane 1',
+			tabLists: ['Tabs, Files shown', 'Tabs, Docs shown', 'Tabs, Search shown'],
+			floatingPanel: 'Search, floating panel'
+		});
+	});
+
+	it('take the keys passed, the others staying English', () => {
+		expect(
+			renderTexts({ resizePane: (pane) => `Redimensionner le panneau ${pane}`, tabList: undefined })
+		).toEqual({
+			separator: 'Redimensionner le panneau 1',
+			tabLists: ['Tabs, Files shown', 'Tabs, Docs shown', 'Tabs, Search shown'],
+			floatingPanel: 'Search, floating panel'
+		});
+	});
+
+	it('are used as they are when every key is passed', () => {
+		const french: LayoutTranslations = {
+			resizePane: (pane) => `Redimensionner le panneau ${pane}`,
+			floatingPanel: (title) => `${title}, panneau flottant`,
+			tabList: (title) => `Onglets, ${title} affiché`
+		};
+		expect(renderTexts(french)).toEqual({
+			separator: 'Redimensionner le panneau 1',
+			tabLists: ['Onglets, Files affiché', 'Onglets, Docs affiché', 'Onglets, Search affiché'],
+			floatingPanel: 'Search, panneau flottant'
+		});
+	});
+
+	it('default to englishTranslations, the exported English text', () => {
+		expect(englishTranslations.resizePane(2)).toBe('Resize pane 2');
+		expect(englishTranslations.floatingPanel('Docs')).toBe('Docs, floating panel');
+		expect(englishTranslations.tabList('Files')).toBe('Tabs, Files shown');
+	});
+});
+
 describe('the views map', () => {
 	it('is validated again when a view the layout shows leaves it', () => {
 		const error = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -341,7 +415,11 @@ describe('the views map', () => {
 					state.config = value;
 				},
 				views,
-				translations: { resizePane: () => 'Resize', floatingPanel: () => 'Floating' }
+				translations: {
+					resizePane: () => 'Resize',
+					floatingPanel: () => 'Floating',
+					tabList: () => 'Tabs'
+				}
 			}
 		});
 		expect(screen.getAllByRole('tablist')).toHaveLength(2);

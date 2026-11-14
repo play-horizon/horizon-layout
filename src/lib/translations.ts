@@ -10,8 +10,10 @@ import type { LayoutTranslations } from './types.ts';
  *
  * @example
  * englishTranslations.resizePane(1); // "Resize pane 1"
+ * englishTranslations.tabList('Files'); // "Tabs, Files shown"
  */
 export const englishTranslations: LayoutTranslations = {
 	resizePane: (pane) => `Resize pane ${pane}`,
-	floatingPanel: (title) => `${title}, floating panel`
+	floatingPanel: (title) => `${title}, floating panel`,
+	tabList: (title) => `Tabs, ${title} shown`
 };

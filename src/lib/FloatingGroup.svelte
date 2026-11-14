@@ -181,6 +181,7 @@ list of floating groups and their stacking order.
 	<HorizonTabGroup
 		bind:config
 		{views}
+		{translations}
 		disableDrag={disableDragAndDrop}
 		{isDragging}
 		{onStartTabDrag}

@@ -164,6 +164,11 @@ export interface LayoutTranslations {
 	 * "Docs, floating panel").
 	 */
 	floatingPanel: (title: string) => string;
+	/**
+	 * Accessible name of a tab group's tab list, given the title of its active tab (for example
+	 * "Tabs, Files shown").
+	 */
+	tabList: (title: string) => string;
 }
 
 /** Where a node sits in the docked tree: the split holding it and its index in `views`. */

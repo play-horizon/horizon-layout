@@ -137,7 +137,8 @@ groups they make, focus following a moved tab, and the popout windows' lifecycle
 	// Key by key, so a key passed as undefined falls back too.
 	let fullTranslations: LayoutTranslations = $derived({
 		resizePane: translations.resizePane ?? englishTranslations.resizePane,
-		floatingPanel: translations.floatingPanel ?? englishTranslations.floatingPanel
+		floatingPanel: translations.floatingPanel ?? englishTranslations.floatingPanel,
+		tabList: translations.tabList ?? englishTranslations.tabList
 	});
 
 	const FLOATING_STEP = 10;
