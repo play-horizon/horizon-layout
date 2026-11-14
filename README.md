@@ -135,26 +135,26 @@ Pass views as a `SvelteMap<Id, View>`. The map is reactive.
 
 ## `HorizonLayout` props
 
-| Prop                  | Type                          | Default               | Description                                                                                                                                                      |
-| --------------------- | ----------------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `config`              | `LayoutConfig`                | _(required)_          | Bindable layout state.                                                                                                                                           |
-| `views`               | `SvelteMap<Id, View>`         | _(required)_          | Map from view id to its descriptor.                                                                                                                              |
-| `translations`        | `Partial<LayoutTranslations>` | `englishTranslations` | The text the layout writes itself, in your app's language; each key left out is English (see [Translations](#translations)). Apps that translate pass every key. |
-| `tabgroupControls`    | `Snippet<[Id]>[]`             | `[]`                  | Snippets rendered in every tab-group toolbar (receives active viewId).                                                                                           |
-| `disableResizeSplits` | `boolean`                     | `false`               | Prevent the user from dragging resizers.                                                                                                                         |
-| `disableDragAndDrop`  | `boolean`                     | `false`               | Prevent tab drag-and-drop.                                                                                                                                       |
-| `showSplitRatio`      | `boolean`                     | `false`               | Show the current split ratio as a label while resizing.                                                                                                          |
-| `minWidthRatio`       | `number`                      | `0.1`                 | Minimum pane width as a fraction of its split container, from 0 to 0.5.                                                                                          |
-| `minHeightRatio`      | `number`                      | `0.2`                 | Minimum pane height as a fraction of its split container, from 0 to 0.5.                                                                                         |
-| `maxDepth`            | `number`                      | `6`                   | Maximum nesting depth, at least 1 (prevents infinite subdivision).                                                                                               |
-| `hideTabBar`          | `boolean`                     | `false`               | Hide the tab bar.                                                                                                                                                |
-| `keyboardControls`    | `KeyboardControls`            | _(see below)_         | Override built-in keyboard shortcuts.                                                                                                                            |
-| `formatRatio`         | `(n: number) => string`       | `"50.00%"`            | Format a split ratio for display.                                                                                                                                |
-| `formatRatioForAria`  | `(n: number) => number`       | `50.00`               | Format a split ratio for `aria-valuenow`.                                                                                                                        |
-| `onPopoutClose`       | `(id: Id) => void`            | —                     | Called when a popout window is closed by the user.                                                                                                               |
-| `onPopoutBlocked`     | `(id: Id) => void`            | —                     | Called when the browser blocks a popout after the fallback timeout. If omitted, the tab is moved into the main layout automatically.                             |
-| `baseClass`           | `string`                      | `"horizon-layout"`    | Root CSS class and BEM prefix for all generated elements.                                                                                                        |
-| `skipValidation`      | `boolean`                     | `false`               | Skip config validation on every update (use after pre-validating with `validateConfig`).                                                                         |
+| Prop                  | Type                          | Default               | Description                                                                                                                                                                    |
+| --------------------- | ----------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `config`              | `LayoutConfig`                | _(required)_          | Bindable layout state.                                                                                                                                                         |
+| `views`               | `SvelteMap<Id, View>`         | _(required)_          | Map from view id to its descriptor.                                                                                                                                            |
+| `translations`        | `Partial<LayoutTranslations>` | `englishTranslations` | The text the layout writes itself, in your app's language; each key left out is English (see [Translations](#translations)). Apps that translate pass every key.               |
+| `tabgroupControls`    | `Snippet<[Id]>[]`             | `[]`                  | Snippets rendered in every tab-group toolbar (receives active viewId).                                                                                                         |
+| `disableResizeSplits` | `boolean`                     | `false`               | Prevent the user from dragging resizers.                                                                                                                                       |
+| `disableDragAndDrop`  | `boolean`                     | `false`               | Prevent tab drag-and-drop.                                                                                                                                                     |
+| `showSplitRatio`      | `boolean`                     | `false`               | Show the current split ratio as a label while resizing.                                                                                                                        |
+| `minWidthRatio`       | `number`                      | `0.1`                 | Minimum pane width as a fraction of its split container, from 0 to 0.5.                                                                                                        |
+| `minHeightRatio`      | `number`                      | `0.2`                 | Minimum pane height as a fraction of its split container, from 0 to 0.5.                                                                                                       |
+| `maxDepth`            | `number`                      | `6`                   | Maximum nesting depth, at least 1 (prevents infinite subdivision).                                                                                                             |
+| `hideTabBar`          | `boolean`                     | `false`               | Hide the tab bar.                                                                                                                                                              |
+| `keyboardControls`    | `KeyboardControls`            | _(see below)_         | Override built-in keyboard shortcuts.                                                                                                                                          |
+| `formatRatio`         | `(n: number) => string`       | `"50.00%"`            | Format a split ratio for display.                                                                                                                                              |
+| `formatRatioForAria`  | `(n: number) => number`       | `50.00`               | Format a split ratio for `aria-valuenow`.                                                                                                                                      |
+| `onPopoutClose`       | `(id: Id) => void`            | —                     | Called when the user closes a popout window, once `config.popouts` no longer lists it.                                                                                         |
+| `onPopoutBlocked`     | `(id: Id) => void`            | —                     | Called when the browser blocks a popout after the fallback timeout, once `config.popouts` no longer lists it. If omitted, the tab is moved into the main layout automatically. |
+| `baseClass`           | `string`                      | `"horizon-layout"`    | Root CSS class and BEM prefix for all generated elements.                                                                                                                      |
+| `skipValidation`      | `boolean`                     | `false`               | Skip config validation on every update (use after pre-validating with `validateConfig`).                                                                                       |
 
 `hideTabBar` never hides a floating group's tab bar: it is what moves the group.
 
@@ -471,7 +471,7 @@ when panes or floating groups before them come or go.
 
 ## Popout windows
 
-Add a view id to `config.popouts` and HorizonLayout opens a new browser window with that view's content. The host page's stylesheets are mirrored into the window automatically. When the user closes the window, `onPopoutClose` is called and the id is removed from `config.popouts`.
+Add a view id to `config.popouts` and HorizonLayout opens a new browser window with that view's content. The host page's stylesheets are mirrored into the window automatically. When the user closes the window, the id is removed from `config.popouts`, then `onPopoutClose` is called, so it can put the view back in the layout. Popout windows close with the page (at its `pagehide`), and when HorizonLayout is unmounted.
 
 ```ts
 // Open a popout programmatically:

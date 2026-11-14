@@ -105,11 +105,15 @@
 		formatRatio?: (ratio: number) => string;
 		/** Format a split ratio as a number for aria-valuenow. Default: 50.00. */
 		formatRatioForAria?: (ratio: number) => number;
-		/** Called when a popout window is closed by the user. */
+		/**
+		 * Called when the user closes a popout window, once the bound config no longer lists it in
+		 * `popouts`.
+		 */
 		onPopoutClose?: (viewId: Id) => void;
 		/**
-		 * Called when the browser blocks a popout window after the fallback timeout.
-		 * If not provided, the blocked tab is automatically moved into the main layout.
+		 * Called when the browser blocks a popout window after the fallback timeout, once the bound
+		 * config no longer lists it in `popouts`. If not provided, the blocked tab is automatically
+		 * moved into the main layout.
 		 */
 		onPopoutBlocked?: (id: Id) => void;
 		/** Root CSS class applied to the layout element and used as a BEM prefix. */
@@ -901,25 +905,30 @@
 		retryRafId = pendingPopouts.size > 0 ? requestAnimationFrame(retryPendingPopouts) : null;
 	}
 
+	// Takes a popout the browser keeps blocking out of `popouts`, then hands it to onPopoutBlocked,
+	// or puts it in the last docked tab group (making it the docked layout when nothing is docked).
 	function handleBlockedPopout(id: Id) {
 		if (!internalConfig) return;
-
-		if (internalConfig.popouts) {
-			const remaining = internalConfig.popouts.filter((p) => p !== id);
-			internalConfig.popouts = remaining.length ? remaining : undefined;
-		}
+		removePopout(id);
 
 		if (onPopoutBlocked) {
-			onPopoutBlocked(id);
+			const callback = onPopoutBlocked;
+			// Once the bound config no longer lists the popout, so the callback reads, and changes,
+			// the current layout.
+			void tick().then(() => callback(id));
+		} else if (internalConfig.root) {
+			const target = lastTabGroup()!;
+			target.tabs.push(id);
+			target.activeTabIndex = target.tabs.length - 1;
 		} else {
-			if (internalConfig.root) {
-				const target = lastTabGroup()!;
-				target.tabs.push(id);
-				target.activeTabIndex = target.tabs.length - 1;
-			} else {
-				internalConfig.root = { tabs: [id], activeTabIndex: 0 };
-			}
+			internalConfig.root = { tabs: [id], activeTabIndex: 0 };
 		}
+	}
+
+	function removePopout(id: Id) {
+		if (!internalConfig?.popouts) return;
+		const remaining = internalConfig.popouts.filter((p) => p !== id);
+		internalConfig.popouts = remaining.length ? remaining : undefined;
 	}
 
 	onMount(() => {
@@ -951,12 +960,6 @@
 	function openPopout(id: Id, view: View, blockedSince?: number) {
 		if (popouts.has(id) || pendingPopouts.has(id)) return;
 
-		const removePopoutFromConfig = (id: Id) => {
-			if (!internalConfig?.popouts) return;
-			const remaining = internalConfig.popouts.filter((p) => p !== id);
-			internalConfig.popouts = remaining.length ? remaining : undefined;
-		};
-
 		const popoutWindow = window.open('', '_blank');
 		if (!popoutWindow) {
 			pendingPopouts.set(id, blockedSince ?? Date.now());
@@ -982,8 +985,10 @@
 		const handleClose = () => {
 			if (!popouts.has(id)) return;
 			cleanupPopout(id, false);
-			removePopoutFromConfig(id);
-			onPopoutClose?.(id);
+			removePopout(id);
+			// Once the bound config no longer lists the popout, so the callback reads, and changes,
+			// the current layout.
+			void tick().then(() => onPopoutClose?.(id));
 		};
 
 		popouts.set(id, { window: popoutWindow, mountedContent, handleClose });

@@ -9,7 +9,7 @@ import { createRawSnippet, flushSync } from 'svelte';
 import { SvelteMap } from 'svelte/reactivity';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import HorizonLayout from './HorizonLayout.svelte';
-import type { Id, LayoutConfig, View } from './types.ts';
+import type { Id, LayoutConfig, TabGroupConfig, View } from './types.ts';
 
 /** A window `window.open` returns: a document of its own, closed by `close`. */
 class FakePopup extends EventTarget {
@@ -61,6 +61,11 @@ function stubOpen(...results: (FakePopup | null)[]) {
 	return open;
 }
 
+/** Lets the pending promise callbacks (the deferred popout callbacks) run. */
+function settle() {
+	return new Promise((resolve) => setTimeout(resolve));
+}
+
 afterEach(() => {
 	vi.useRealTimers();
 	vi.restoreAllMocks();
@@ -106,6 +111,29 @@ describe('popouts', () => {
 
 		expect(popup.closed).toBe(true);
 		expect(onPopoutClose).not.toHaveBeenCalled();
+	});
+
+	it('call onPopoutClose once the config no longer lists the window the user closed', async () => {
+		const popup = new FakePopup();
+		const open = stubOpen(popup);
+		let seen: LayoutConfig | undefined;
+		const { state } = renderLayout(
+			{ root: { tabs: ['a'], activeTabIndex: 0 }, popouts: ['b'] },
+			{
+				onPopoutClose: (id) => {
+					seen = $state.snapshot(state.config);
+					(state.config.root as TabGroupConfig).tabs.push(id);
+				}
+			}
+		);
+
+		popup.dispatchEvent(new Event('pagehide'));
+		await settle();
+		flushSync();
+
+		expect(seen).toEqual({ root: { tabs: ['a'], activeTabIndex: 0 } });
+		expect(state.config).toEqual({ root: { tabs: ['a', 'b'], activeTabIndex: 0 } });
+		expect(open).toHaveBeenCalledTimes(1);
 	});
 
 	it('open once the browser lets a blocked window open within 500 ms', () => {
@@ -161,5 +189,27 @@ describe('popouts', () => {
 		flushSync();
 
 		expect(state.config).toEqual({ root: { tabs: ['b'], activeTabIndex: 0 } });
+	});
+
+	it('call onPopoutBlocked once the config no longer lists a window still blocked', async () => {
+		vi.useFakeTimers({ toFake: ['Date', 'requestAnimationFrame', 'cancelAnimationFrame'] });
+		vi.spyOn(window, 'open').mockReturnValue(null);
+		let seen: LayoutConfig | undefined;
+		const { state } = renderLayout(
+			{ root: { tabs: ['a'], activeTabIndex: 0 }, popouts: ['b'] },
+			{
+				onPopoutBlocked: (id) => {
+					seen = $state.snapshot(state.config);
+					(state.config.root as TabGroupConfig).tabs.unshift(id);
+				}
+			}
+		);
+
+		vi.advanceTimersByTime(600);
+		await settle();
+		flushSync();
+
+		expect(seen).toEqual({ root: { tabs: ['a'], activeTabIndex: 0 } });
+		expect(state.config).toEqual({ root: { tabs: ['b', 'a'], activeTabIndex: 0 } });
 	});
 });
