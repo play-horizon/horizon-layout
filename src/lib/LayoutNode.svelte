@@ -32,7 +32,6 @@ Split renders one for each of its panes.
 		onHoverEnter,
 		onHoverExit,
 		canDrop,
-		remainingDepth,
 		showSplitRatio,
 		minWidthRatio,
 		minHeightRatio,
@@ -54,7 +53,6 @@ Split renders one for each of its panes.
 		onHoverExit: (tabGroup: TabGroupConfig) => void;
 		canDrop: (tabGroup: TabGroupConfig, target: DropTarget) => boolean;
 		isDragging: boolean;
-		remainingDepth: number;
 		showSplitRatio: boolean;
 		minWidthRatio: number;
 		minHeightRatio: number;
@@ -80,7 +78,6 @@ Split renders one for each of its panes.
 		{onHoverEnter}
 		{onHoverExit}
 		{canDrop}
-		remainingDepth={remainingDepth - 1}
 		{showSplitRatio}
 		{minWidthRatio}
 		{minHeightRatio}
@@ -101,7 +98,6 @@ Split renders one for each of its panes.
 		{onHoverEnter}
 		{onHoverExit}
 		{canDrop}
-		{remainingDepth}
 		{hideTabBar}
 		controls={tabgroupControls}
 		keyboardControls={keyboardControls.tabGroupControls}

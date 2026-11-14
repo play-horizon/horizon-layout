@@ -7,7 +7,7 @@ Internal to HorizonLayout, rendered by LayoutNode for a docked group and by Floa
 -->
 <script lang="ts">
 	import type { Id, KeyboardControl, TabGroupConfig, View } from './types.ts';
-	import { onDestroy, untrack, type Snippet } from 'svelte';
+	import { onDestroy, type Snippet } from 'svelte';
 	import { getModifier } from './internal-utils.ts';
 	import type { SvelteMap } from 'svelte/reactivity';
 	import type { DropSide, DropTarget } from './internal-types.ts';
@@ -21,7 +21,6 @@ Internal to HorizonLayout, rendered by LayoutNode for a docked group and by Floa
 		onHoverEnter,
 		onHoverExit,
 		canDrop,
-		remainingDepth,
 		hideTabBar,
 		controls,
 		keyboardControls,
@@ -37,7 +36,6 @@ Internal to HorizonLayout, rendered by LayoutNode for a docked group and by Floa
 		onHoverEnter: (tabGroup: TabGroupConfig, target: DropTarget) => void;
 		onHoverExit: (tabGroup: TabGroupConfig) => void;
 		canDrop: (tabGroup: TabGroupConfig, target: DropTarget) => boolean;
-		remainingDepth: number;
 		hideTabBar: boolean;
 		controls: Snippet<[Id]>[];
 		keyboardControls: KeyboardControl<TabGroupConfig>[];
@@ -94,45 +92,42 @@ Internal to HorizonLayout, rendered by LayoutNode for a docked group and by Floa
 		onStartTabDrag(event, config, tabId);
 	}
 
-	// Track which target (if any) we are currently hovering over and which config
-	// object we reported to the parent, so we can reliably fire the exit callback
-	// even if the component's config reference changes mid-drag.
-	let hoverData: {
-		target: DropTarget;
-		reportedConfig: TabGroupConfig;
-	} | null = $state(null);
+	// The drop target under the pointer, shown as a drop hint. Drag events alone keep it right: the
+	// zone under the pointer gets a dragover every few hundred milliseconds at most, and the drag
+	// ends on it with a dragleave (cancelled) or a drop.
+	let hoverTarget = $state<DropTarget | null>(null);
+	// The config this group last reported as hovered, so the exit is reported for that object even
+	// once the config prop has changed.
+	let reportedConfig: TabGroupConfig | null = null;
+	let shownHover = $derived(isDragging ? hoverTarget : null);
 
 	function handleHoverExit() {
-		if (!hoverData) return;
-		const reported = hoverData.reportedConfig;
-		hoverData = null;
+		hoverTarget = null;
+		if (!reportedConfig) return;
+		const reported = reportedConfig;
+		reportedConfig = null;
 		onHoverExit(reported);
 	}
 
+	// Reported on every dragover, not only when the target changes: the config, or whether the
+	// target accepts the tab, may have changed since the last one, and the layout must drop the
+	// tab into the group as it is now.
 	function handleHoverEnter(target: DropTarget) {
 		if (!isDragging || !canDrop(config, target)) {
 			handleHoverExit();
 			return;
 		}
-
-		if (
-			hoverData &&
-			hoverData.reportedConfig === config &&
-			hoverData.target.side === target.side &&
-			hoverData.target.tabIndex === target.tabIndex
-		) {
-			return;
-		}
-
-		handleHoverExit();
-		hoverData = { target, reportedConfig: config };
+		reportedConfig = config;
 		onHoverEnter(config, target);
+		if (hoverTarget?.side !== target.side || hoverTarget?.tabIndex !== target.tabIndex) {
+			hoverTarget = target;
+		}
 	}
 
 	function handleDragOver(event: DragEvent, target: DropTarget) {
 		event.preventDefault();
 		event.stopPropagation();
-		event.dataTransfer!.dropEffect = 'move';
+		if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
 		handleHoverEnter(target);
 	}
 
@@ -142,19 +137,14 @@ Internal to HorizonLayout, rendered by LayoutNode for a docked group and by Floa
 		handleHoverExit();
 	}
 
-	// Re-emit hover events if config or drag state changes while hovering,
-	// so the parent always has up-to-date references.
-	$effect(() => {
-		void config;
-		void isDragging;
-		void remainingDepth;
-		if (!isDragging) {
-			handleHoverExit();
-			return;
-		}
-		const target = untrack(() => hoverData?.target);
-		if (target) handleHoverEnter(target);
-	});
+	// Reports the target once more, as it is at the drop, then lets the drop bubble to the window,
+	// where the layout moves the tab. The hover stays reported: the layout consumes it there.
+	function handleDrop(event: DragEvent, target: DropTarget) {
+		event.preventDefault();
+		handleHoverEnter(target);
+		hoverTarget = null;
+		reportedConfig = null;
+	}
 
 	onDestroy(handleHoverExit);
 </script>
@@ -184,8 +174,8 @@ Internal to HorizonLayout, rendered by LayoutNode for a docked group and by Floa
 				{#each config.tabs as tabId, index (tabId)}
 					{@const tab = views.get(tabId)}
 					<div
-						class="{baseClass}__tab-drop-hint {baseClass}__tab-drop-hint--{index}{hoverData?.target
-							.tabIndex === index
+						class="{baseClass}__tab-drop-hint {baseClass}__tab-drop-hint--{index}{shownHover?.tabIndex ===
+						index
 							? ` ${baseClass}__tab-drop-hint--hover`
 							: ''}"
 						aria-hidden="true"
@@ -197,6 +187,7 @@ Internal to HorizonLayout, rendered by LayoutNode for a docked group and by Floa
 							ondragenter={(event) => handleDragOver(event, { tabIndex: index })}
 							ondragover={(event) => handleDragOver(event, { tabIndex: index })}
 							ondragleave={handleDragLeave}
+							ondrop={(event) => handleDrop(event, { tabIndex: index })}
 						></div>
 					{/if}
 					{@const isActive = index === config.activeTabIndex}
@@ -224,8 +215,7 @@ Internal to HorizonLayout, rendered by LayoutNode for a docked group and by Floa
 				{/each}
 				<div
 					class="{baseClass}__tab-drop-hint {baseClass}__tab-drop-hint--{config.tabs
-						.length} {baseClass}__tab-drop-hint--end{hoverData?.target.tabIndex ===
-					config.tabs.length
+						.length} {baseClass}__tab-drop-hint--end{shownHover?.tabIndex === config.tabs.length
 						? ` ${baseClass}__tab-drop-hint--hover`
 						: ''}"
 					aria-hidden="true"
@@ -238,6 +228,7 @@ Internal to HorizonLayout, rendered by LayoutNode for a docked group and by Floa
 						ondragenter={(event) => handleDragOver(event, { tabIndex: config.tabs.length })}
 						ondragover={(event) => handleDragOver(event, { tabIndex: config.tabs.length })}
 						ondragleave={handleDragLeave}
+						ondrop={(event) => handleDrop(event, { tabIndex: config.tabs.length })}
 					></div>
 				{/if}
 			</div>
@@ -272,11 +263,12 @@ Internal to HorizonLayout, rendered by LayoutNode for a docked group and by Floa
 					ondragenter={(event) => handleDragOver(event, { side: side as DropSide })}
 					ondragover={(event) => handleDragOver(event, { side: side as DropSide })}
 					ondragleave={handleDragLeave}
+					ondrop={(event) => handleDrop(event, { side: side as DropSide })}
 				></div>
 			{/each}
 		</div>
-		{#if hoverData?.target.side}
-			<div class="{baseClass}__drop-hint {baseClass}__drop-hint--{hoverData.target.side}"></div>
+		{#if shownHover?.side}
+			<div class="{baseClass}__drop-hint {baseClass}__drop-hint--{shownHover.side}"></div>
 		{/if}
 	{/if}
 </section>

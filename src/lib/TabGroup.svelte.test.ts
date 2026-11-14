@@ -8,7 +8,7 @@ import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { describe, expect, it } from 'vitest';
 import LayoutHarness from '../test/LayoutHarness.svelte';
-import type { LayoutConfig } from './types.ts';
+import type { FloatingGroupConfig, LayoutConfig, SplitConfig } from './types.ts';
 
 /** A stand-in for the `DataTransfer` jsdom lacks, with what a tab drag uses. */
 function dataTransfer() {
@@ -22,11 +22,9 @@ async function startDrag(tab: HTMLElement) {
 	await tick();
 }
 
-/** Renders the harness with one group of three tabs, the second active, and returns its state. */
-function renderGroup() {
-	const state = $state<{ config: LayoutConfig }>({
-		config: { root: { tabs: ['a', 'b', 'c'], activeTabIndex: 1 } }
-	});
+/** Renders the harness with a config held in `$state`, and returns it. */
+function renderLayout(initial: LayoutConfig) {
+	const state = $state({ config: initial });
 	render(LayoutHarness, {
 		props: {
 			get config() {
@@ -35,10 +33,42 @@ function renderGroup() {
 			set config(value) {
 				state.config = value;
 			},
-			ids: ['a', 'b', 'c']
+			ids: ['a', 'b', 'c', 'd']
 		}
 	});
 	return state;
+}
+
+/** Renders one group of three tabs, the second active, and returns its state. */
+function renderGroup() {
+	return renderLayout({ root: { tabs: ['a', 'b', 'c'], activeTabIndex: 1 } });
+}
+
+function twoPanes(): LayoutConfig {
+	return {
+		root: {
+			direction: 'horizontal',
+			views: [
+				{ tabs: ['a', 'b'], activeTabIndex: 0 },
+				{ tabs: ['c'], activeTabIndex: 0 }
+			],
+			splitPoints: [0.5]
+		}
+	};
+}
+
+/** The tab group element whose tab list holds the tab titled after `id`. */
+function groupOf(id: string): HTMLElement {
+	return screen.getByRole('tab', { name: `Title of ${id}` }).closest('section')!;
+}
+
+/** The drop zone of `group` matching `modifier` (a side, or a tab index). */
+function zoneOf(group: HTMLElement, modifier: string): HTMLElement {
+	const zone = group.querySelector<HTMLElement>(
+		`.horizon-layout-tabgroup__drop-zone--${modifier}, .horizon-layout-tabgroup__tab-drop-zone--${modifier}`
+	);
+	if (!zone) throw new Error(`no drop zone ${modifier}`);
+	return zone;
 }
 
 describe('tab groups', () => {
@@ -99,5 +129,106 @@ describe('tab groups', () => {
 		expect(zones).toHaveLength(4);
 		for (const zone of zones) expect(zone.getAttribute('aria-hidden')).toBe('true');
 		expect(screen.queryAllByRole('region')).toEqual([]);
+	});
+
+	it('show the drop hint of the side under a dragged tab, until it leaves', async () => {
+		renderLayout(twoPanes());
+		const target = groupOf('c');
+		await startDrag(screen.getByRole('tab', { name: 'Title of b' }));
+
+		await fireEvent.dragOver(zoneOf(target, 'right'), { dataTransfer: dataTransfer() });
+		expect(target.querySelector('.horizon-layout-tabgroup__drop-hint--right')).not.toBeNull();
+		await fireEvent.dragLeave(zoneOf(target, 'right'));
+		expect(target.querySelector('.horizon-layout-tabgroup__drop-hint')).toBeNull();
+	});
+
+	it('split the group on the side a tab is dropped on', async () => {
+		const state = renderLayout(twoPanes());
+		const target = groupOf('c');
+		await startDrag(screen.getByRole('tab', { name: 'Title of b' }));
+
+		await fireEvent.dragOver(zoneOf(target, 'right'), { dataTransfer: dataTransfer() });
+		await fireEvent.drop(zoneOf(target, 'right'), { dataTransfer: dataTransfer() });
+		await fireEvent.dragEnd(window);
+
+		expect(state.config.root).toEqual({
+			direction: 'horizontal',
+			views: [
+				{ tabs: ['a'], activeTabIndex: 0 },
+				{ tabs: ['c'], activeTabIndex: 0 },
+				{ tabs: ['b'], activeTabIndex: 0 }
+			],
+			splitPoints: [0.5, 0.75]
+		});
+		expect(document.querySelector('.horizon-layout-tabgroup__drop-hint')).toBeNull();
+	});
+
+	it('drop on the zone under the pointer at the drop, even right after a dragleave', async () => {
+		const state = renderLayout(twoPanes());
+		const target = groupOf('c');
+		await startDrag(screen.getByRole('tab', { name: 'Title of b' }));
+
+		// Moving between two zones of a group fires the dragleave of the old one after the
+		// dragenter of the new one, so a drop can come before the next dragover.
+		await fireEvent.dragOver(zoneOf(target, 'right'), { dataTransfer: dataTransfer() });
+		await fireEvent.dragLeave(zoneOf(target, 'right'));
+		await fireEvent.drop(zoneOf(target, 'right'), { dataTransfer: dataTransfer() });
+		await fireEvent.dragEnd(window);
+
+		expect((state.config.root as SplitConfig).views).toHaveLength(3);
+	});
+
+	it('insert a tab dropped between tabs at that place, showing where first', async () => {
+		const state = renderLayout(twoPanes());
+		const target = groupOf('c');
+		await startDrag(screen.getByRole('tab', { name: 'Title of b' }));
+
+		await fireEvent.dragOver(zoneOf(target, '0'), { dataTransfer: dataTransfer() });
+		expect(
+			target
+				.querySelector('.horizon-layout-tabgroup__tab-drop-hint--0')!
+				.classList.contains('horizon-layout-tabgroup__tab-drop-hint--hover')
+		).toBe(true);
+		await fireEvent.drop(zoneOf(target, '0'), { dataTransfer: dataTransfer() });
+		await fireEvent.dragEnd(window);
+
+		expect(state.config.root).toEqual({
+			direction: 'horizontal',
+			views: [
+				{ tabs: ['a'], activeTabIndex: 0 },
+				{ tabs: ['b', 'c'], activeTabIndex: 0 }
+			],
+			splitPoints: [0.5]
+		});
+	});
+
+	it('put a dragged tab back when the drag is cancelled', async () => {
+		const state = renderLayout(twoPanes());
+		const target = groupOf('c');
+		await startDrag(screen.getByRole('tab', { name: 'Title of b' }));
+
+		await fireEvent.dragOver(zoneOf(target, 'left'), { dataTransfer: dataTransfer() });
+		await fireEvent.dragLeave(zoneOf(target, 'left'));
+		await fireEvent.dragEnd(window);
+
+		expect(state.config).toEqual(twoPanes());
+	});
+
+	it('take a dragged tab into a floating group’s tab bar only', async () => {
+		const floating: FloatingGroupConfig = {
+			tabs: ['d'],
+			activeTabIndex: 0,
+			rect: { x: 0, y: 0, width: 300, height: 200 }
+		};
+		const state = renderLayout({ ...twoPanes(), floating: [floating] });
+		const target = groupOf('d');
+		await startDrag(screen.getByRole('tab', { name: 'Title of b' }));
+
+		await fireEvent.dragOver(zoneOf(target, 'right'), { dataTransfer: dataTransfer() });
+		expect(target.querySelector('.horizon-layout-tabgroup__drop-hint')).toBeNull();
+		await fireEvent.drop(zoneOf(target, 'right'), { dataTransfer: dataTransfer() });
+		await fireEvent.dragEnd(window);
+
+		expect(state.config).toEqual({ ...twoPanes(), floating: [floating] });
 	});
 });

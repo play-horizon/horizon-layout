@@ -38,7 +38,6 @@ list of floating groups and their stacking order.
 		onHoverEnter,
 		onHoverExit,
 		canDrop,
-		remainingDepth,
 		tabGroupControls,
 		floatingControls,
 		baseClass,
@@ -61,7 +60,6 @@ list of floating groups and their stacking order.
 		onHoverEnter: (tabGroup: TabGroupConfig, target: DropTarget) => void;
 		onHoverExit: (tabGroup: TabGroupConfig) => void;
 		canDrop: (tabGroup: TabGroupConfig, target: DropTarget) => boolean;
-		remainingDepth: number;
 		tabGroupControls: KeyboardControl<TabGroupConfig>[];
 		floatingControls: KeyboardControl<FloatingControlData>[];
 		baseClass: string;
@@ -195,7 +193,6 @@ list of floating groups and their stacking order.
 		{onHoverEnter}
 		{onHoverExit}
 		{canDrop}
-		{remainingDepth}
 		hideTabBar={false}
 		controls={tabgroupControls}
 		keyboardControls={tabGroupControls}

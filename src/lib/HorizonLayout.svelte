@@ -1019,7 +1019,6 @@
 						{onHoverEnter}
 						{onHoverExit}
 						{canDrop}
-						remainingDepth={maxDepth}
 						{showSplitRatio}
 						{minWidthRatio}
 						{minHeightRatio}
@@ -1054,7 +1053,6 @@
 							{onHoverEnter}
 							{onHoverExit}
 							{canDrop}
-							remainingDepth={maxDepth}
 							tabGroupControls={controls.tabGroupControls}
 							floatingControls={controls.floatingControls}
 							{baseClass}

@@ -30,7 +30,6 @@ keyboard controls, and an optional ratio label. Internal to HorizonLayout, rende
 		onHoverEnter,
 		onHoverExit,
 		canDrop,
-		remainingDepth,
 		showSplitRatio,
 		minWidthRatio,
 		minHeightRatio,
@@ -52,7 +51,6 @@ keyboard controls, and an optional ratio label. Internal to HorizonLayout, rende
 		onHoverEnter: (tabGroup: TabGroupConfig, target: DropTarget) => void;
 		onHoverExit: (tabGroup: TabGroupConfig) => void;
 		canDrop: (tabGroup: TabGroupConfig, target: DropTarget) => boolean;
-		remainingDepth: number;
 		showSplitRatio: boolean;
 		minWidthRatio: number;
 		minHeightRatio: number;
@@ -158,7 +156,6 @@ keyboard controls, and an optional ratio label. Internal to HorizonLayout, rende
 				{onHoverExit}
 				{canDrop}
 				{isDragging}
-				{remainingDepth}
 				{showSplitRatio}
 				{minWidthRatio}
 				{minHeightRatio}
