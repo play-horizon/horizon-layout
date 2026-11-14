@@ -45,21 +45,29 @@ jobs:
       - name: Build
         run: pnpm run build
 
-  release:
-    name: Release & Publish
+  # The release is split in two jobs, so the npm credential (the OIDC token of trusted
+  # publishing, which `id-token: write` lets any step of its job mint) never sits in a job that
+  # installs dependencies and runs their scripts: `package` builds the tarball without it, and
+  # `publish` publishes that tarball, with no install and no script run.
+  package:
+    name: Build the package
     runs-on: ubuntu-latest
     needs: [check]
     if: github.ref == 'refs/heads/main'
-    permissions:
-      contents: write
-      id-token: write
+    outputs:
+      version: ${{ steps.version.outputs.value }}
+      node: ${{ steps.version.outputs.node }}
+      released: ${{ steps.tag_exists.outputs.exists }}
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # The Node version too, for the publish job, which has no checkout.
       - name: Get version
         id: version
-        run: echo "value=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+        run: |
+          echo "value=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+          echo "node=$(cat .node-version)" >> $GITHUB_OUTPUT
 
       - name: Check if tag exists
         id: tag_exists
@@ -78,26 +86,58 @@ jobs:
         with:
           node-version-file: .node-version
           cache: pnpm
-          registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
         if: steps.tag_exists.outputs.exists == 'false'
         run: pnpm install --frozen-lockfile
 
-      - name: Build
+      # Runs `prepack` (svelte-package and publint), as a publish of the folder would.
+      - name: Pack
         if: steps.tag_exists.outputs.exists == 'false'
-        run: pnpm run build
+        run: pnpm pack --pack-destination package
 
-      - name: Create GitHub release
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: steps.tag_exists.outputs.exists == 'false'
-        run: gh release create "v${{ steps.version.outputs.value }}" --generate-notes --title "v${{ steps.version.outputs.value }}"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          name: package
+          path: package/horizon-layout-${{ steps.version.outputs.value }}.tgz
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    name: Publish & release
+    runs-on: ubuntu-latest
+    needs: [package]
+    if: needs.package.outputs.released == 'false'
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: package
+          path: package
+
+      # The npm of Node 24 (11.5.1 or later) publishes with trusted publishing.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ needs.package.outputs.node }}
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Update npm
         if: steps.tag_exists.outputs.exists == 'false'
         run: npm install -g npm@latest
 
+      # Publish before tagging: the tag marks the version as released, so a failed publish
+      # must leave no tag behind, or the next run would skip it.
       - name: Publish to npm
-        if: steps.tag_exists.outputs.exists == 'false'
-        run: npm publish --provenance
+        run: npm publish "package/horizon-layout-${{ needs.package.outputs.version }}.tgz" --provenance --ignore-scripts
+
+      - name: Create GitHub release
+        run: >-
+          gh release create "v${{ needs.package.outputs.version }}"
+          --repo "${{ github.repository }}" --target "${{ github.sha }}"
+          --generate-notes --title "v${{ needs.package.outputs.version }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
