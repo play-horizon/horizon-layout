@@ -14,14 +14,23 @@
 		config: () => LayoutConfig;
 	} = $props();
 
+	// The library's own source tree, for the `files` page (file names are unique in it).
 	const files = [
 		{ name: 'src/', depth: 0 },
 		{ name: 'lib/', depth: 1 },
+		{ name: 'FloatingGroup.svelte', depth: 2 },
 		{ name: 'HorizonLayout.svelte', depth: 2 },
 		{ name: 'LayoutNode.svelte', depth: 2 },
+		{ name: 'PopoutContent.svelte', depth: 2 },
 		{ name: 'Split.svelte', depth: 2 },
 		{ name: 'TabGroup.svelte', depth: 2 },
+		{ name: 'floating.ts', depth: 2 },
 		{ name: 'horizon-layout.css', depth: 2 },
+		{ name: 'index.ts', depth: 2 },
+		{ name: 'internal-types.ts', depth: 2 },
+		{ name: 'internal-utils.ts', depth: 2 },
+		{ name: 'reconcile.ts', depth: 2 },
+		{ name: 'translations.ts', depth: 2 },
 		{ name: 'types.ts', depth: 2 },
 		{ name: 'utils.ts', depth: 2 },
 		{ name: 'routes/', depth: 1 },
