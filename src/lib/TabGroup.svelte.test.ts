@@ -1,12 +1,26 @@
 /**
  * Component tests of tab groups, rendered in jsdom through `LayoutHarness` (src/test): the
- * WAI-ARIA tabs semantics of the tab list, and selecting tabs with the pointer and the keyboard.
+ * WAI-ARIA tabs semantics of the tab list, selecting tabs with the pointer and the keyboard, and
+ * dragging a tab over a group.
  * @module
  */
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import { describe, expect, it } from 'vitest';
 import LayoutHarness from '../test/LayoutHarness.svelte';
 import type { LayoutConfig } from './types.ts';
+
+/** A stand-in for the `DataTransfer` jsdom lacks, with what a tab drag uses. */
+function dataTransfer() {
+	return { dropEffect: 'none', effectAllowed: 'none', setDragImage: () => {} };
+}
+
+/** Starts dragging `tab`, and waits for the layout to take it out of its group. */
+async function startDrag(tab: HTMLElement) {
+	await fireEvent.dragStart(tab, { dataTransfer: dataTransfer() });
+	await new Promise((resolve) => requestAnimationFrame(resolve));
+	await tick();
+}
 
 /** Renders the harness with one group of three tabs, the second active, and returns its state. */
 function renderGroup() {
@@ -75,5 +89,15 @@ describe('tab groups', () => {
 		expect(tabList.getAttribute('aria-activedescendant')).toBe(
 			screen.getByRole('tab', { name: 'Title of c' }).id
 		);
+	});
+
+	it('hide their drop zones from assistive technologies while a tab is dragged', async () => {
+		renderGroup();
+		await startDrag(screen.getByRole('tab', { name: 'Title of a' }));
+
+		const zones = document.querySelectorAll('.horizon-layout-tabgroup__drop-zone');
+		expect(zones).toHaveLength(4);
+		for (const zone of zones) expect(zone.getAttribute('aria-hidden')).toBe('true');
+		expect(screen.queryAllByRole('region')).toEqual([]);
 	});
 });

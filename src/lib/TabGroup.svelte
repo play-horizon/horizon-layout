@@ -268,7 +268,7 @@ Internal to HorizonLayout, rendered by LayoutNode for a docked group and by Floa
 			{#each ['top', 'right', 'bottom', 'left'] as side (side)}
 				<div
 					class="{baseClass}__drop-zone {baseClass}__drop-zone--{side}"
-					role="region"
+					aria-hidden="true"
 					ondragenter={(event) => handleDragOver(event, { side: side as DropSide })}
 					ondragover={(event) => handleDragOver(event, { side: side as DropSide })}
 					ondragleave={handleDragLeave}
