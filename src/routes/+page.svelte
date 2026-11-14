@@ -4,7 +4,7 @@
 	import '#lib/horizon-layout.css';
 	import './demo-themes.css';
 	import { SvelteMap } from 'svelte/reactivity';
-	import { createRawSnippet, mount, unmount } from 'svelte';
+	import { createRawSnippet, mount, onMount, unmount } from 'svelte';
 	import { cloneConfig, floatView, removeView, validateConfig } from '#lib/utils.js';
 	import { themes, themeClassMap } from './themes.js';
 	import DemoPage from './DemoPage.svelte';
@@ -236,12 +236,14 @@
 		}, 250);
 	});
 
-	// Restore the persisted state once at startup, if the switch was left on.
-	{
-		const persisted = loadDemoState();
-		persistLayout = persisted !== null;
-		if (persisted) applyState(persisted);
-	}
+	// Read once hydrated, not while the script first runs: the prerendered page holds the default
+	// state, which hydration must find again, and storage exists only in the browser.
+	onMount(() => {
+		const saved = loadDemoState();
+		if (!saved) return;
+		persistLayout = true;
+		applyState(saved);
+	});
 </script>
 
 <svelte:window

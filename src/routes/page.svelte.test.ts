@@ -26,6 +26,7 @@ function tabTitles(): string[] {
 
 afterEach(() => {
 	vi.restoreAllMocks();
+	localStorage.clear();
 	for (const frame of document.querySelectorAll('iframe')) frame.remove();
 });
 
@@ -57,5 +58,26 @@ describe('demo page', () => {
 		await tick();
 		expect(document.querySelector('#nested-theme-select')).toBe(theme);
 		expect(theme.value).toBe('light');
+	});
+
+	it('restores the saved state once mounted', async () => {
+		localStorage.setItem(
+			'horizon-layout-demo-state',
+			JSON.stringify({
+				persist: true,
+				config: { root: { tabs: ['nested', 'page-4'], activeTabIndex: 1 } },
+				pages: [
+					{ id: 'nested', title: 'Nested layout', kind: 'nested', persistent: true },
+					{ id: 'page-4', title: 'Page 4', kind: 'blank' }
+				],
+				theme: 'nord'
+			})
+		);
+		render(Page);
+		await tick();
+
+		expect(tabTitles()).toEqual(['Nested layout', 'Page 4']);
+		const save = screen.getByRole('checkbox', { name: 'Save to localStorage' }) as HTMLInputElement;
+		expect(save.checked).toBe(true);
 	});
 });
