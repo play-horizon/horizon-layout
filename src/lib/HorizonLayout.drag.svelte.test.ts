@@ -145,6 +145,20 @@ describe('dragging a tab', () => {
 		expect(container.querySelector('.horizon-layout-tabgroup__drop-zones')).toBeNull();
 	});
 
+	it('leaves the tab in place when the drag ends before its first frame', async () => {
+		const { state, container } = renderLayout(twoPanes());
+		const source = tab('Title of b');
+
+		await fireEvent.dragStart(source, dataTransfer());
+		await fireEvent.dragEnd(source);
+		await nextFrame();
+		flushSync();
+
+		expect(state.config).toEqual(twoPanes());
+		expect(tab('Title of b')).toBeTruthy();
+		expect(container.querySelector('.horizon-layout-tabgroup__drop-zones')).toBeNull();
+	});
+
 	it('is cancelled by a change of the config outside, which a later drop leaves alone', async () => {
 		const { state, container } = renderLayout(twoPanes());
 		await startDrag('Title of b');
@@ -156,5 +170,27 @@ describe('dragging a tab', () => {
 
 		await fireEvent.drop(window, dataTransfer());
 		expect(state.config).toEqual({ root: { tabs: ['a', 'b', 'c'], activeTabIndex: 0 } });
+	});
+
+	it('doesn’t start when the config outside moved the tab before its first frame', async () => {
+		const { state, container } = renderLayout(twoPanes());
+		await fireEvent.dragStart(tab('Title of b'), dataTransfer());
+
+		state.config = {
+			root: {
+				direction: 'horizontal',
+				views: [
+					{ tabs: ['a'], activeTabIndex: 0 },
+					{ tabs: ['c', 'b'], activeTabIndex: 0 }
+				],
+				splitPoints: [0.5]
+			}
+		};
+		flushSync();
+		await nextFrame();
+		flushSync();
+
+		expect(container.querySelector('.horizon-layout-tabgroup__drop-zones')).toBeNull();
+		expect(within(groups(container)[1]!).getByRole('tab', { name: 'Title of b' })).toBeTruthy();
 	});
 });

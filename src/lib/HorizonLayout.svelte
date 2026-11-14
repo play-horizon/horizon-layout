@@ -753,12 +753,14 @@
 		if (dragData?.hover?.tabGroup === tabGroup) dragData.hover = null;
 	}
 
-	function onStartTabDrag(event: DragEvent, tabGroup: TabGroupConfig, tabId: Id) {
-		if (dragData) return;
+	// The browser drag of a tab in progress, from its dragstart to its end: the element it started
+	// from, and the frame that takes the tab out of its group until that frame has run.
+	let tabDrag: { source: EventTarget; startFrame: number | null } | null = null;
 
-		const tabIndex = tabGroup.tabs.indexOf(tabId);
-		if (tabIndex === -1) return;
-		const activeTabIndex = tabGroup.activeTabIndex;
+	function onStartTabDrag(event: DragEvent, tabGroup: TabGroupConfig, tabId: Id) {
+		// A new drag means the one before has ended, even if its end never reached us.
+		endTabDrag();
+		if (!tabGroup.tabs.includes(tabId)) return;
 
 		if (event.dataTransfer) {
 			event.dataTransfer.effectAllowed = 'move';
@@ -771,31 +773,66 @@
 			}
 		}
 
-		event.target!.addEventListener('dragend', onDrop, { once: true });
-		window.addEventListener('dragend', onDrop, { once: true });
-		window.addEventListener('drop', onDrop, { once: true });
+		// The source element too: once the tab leaves its group, its element leaves the document,
+		// and the dragend fired at it no longer reaches the window.
+		const source = event.target!;
+		source.addEventListener('dragend', endTabDrag);
+		window.addEventListener('dragend', endTabDrag);
+		window.addEventListener('drop', endTabDrag);
 
-		requestAnimationFrame(() => {
-			dragData = {
-				configBeforeDrag: cloneConfig(internalConfig!),
-				tabId,
-				hover: null
-			};
-			tabGroup.tabs.splice(tabIndex, 1);
-			if (tabGroup.tabs.length > 0) {
-				if (activeTabIndex === tabIndex) {
-					tabGroup.activeTabIndex = Math.min(tabIndex, tabGroup.tabs.length - 1);
-				} else if (activeTabIndex > tabIndex) {
-					tabGroup.activeTabIndex = activeTabIndex - 1;
-				} else {
-					tabGroup.activeTabIndex = activeTabIndex;
-				}
-			}
-			simplifyTabGroup(tabGroup, nodeParentMap, internalConfig!);
-			if (dragData) dragData.hover = null;
+		// Browsers cancel a drag whose source changes during its dragstart, so the tab leaves its
+		// group in the next frame.
+		const drag: { source: EventTarget; startFrame: number | null } = { source, startFrame: null };
+		drag.startFrame = requestAnimationFrame(() => {
+			drag.startFrame = null;
+			takeDraggedTab(tabGroup, tabId);
 		});
+		tabDrag = drag;
 	}
 
+	// Takes the dragged tab out of its group for the time of the drag, unless the layout changed
+	// since the dragstart so that the group no longer holds it.
+	function takeDraggedTab(tabGroup: TabGroupConfig, tabId: Id) {
+		const tabIndex = tabGroup.tabs.indexOf(tabId);
+		if (!internalConfig || tabIndex === -1 || !isInLayout(tabGroup)) return;
+		const activeTabIndex = tabGroup.activeTabIndex;
+
+		dragData = { configBeforeDrag: cloneConfig(internalConfig), tabId, hover: null };
+		tabGroup.tabs.splice(tabIndex, 1);
+		if (tabGroup.tabs.length > 0) {
+			if (activeTabIndex === tabIndex) {
+				tabGroup.activeTabIndex = Math.min(tabIndex, tabGroup.tabs.length - 1);
+			} else if (activeTabIndex > tabIndex) {
+				tabGroup.activeTabIndex = activeTabIndex - 1;
+			}
+		}
+		simplifyTabGroup(tabGroup, nodeParentMap, internalConfig);
+	}
+
+	function isInLayout(tabGroup: TabGroupConfig): boolean {
+		return internalConfig?.root === tabGroup || nodeParentMap.has(tabGroup) || isFloating(tabGroup);
+	}
+
+	// Ends the browser drag of a tab, at its drop or at its dragend (dropped elsewhere, or
+	// cancelled), and applies the drop.
+	function endTabDrag() {
+		stopTabDrag();
+		onDrop();
+	}
+
+	// Stops listening for the end of the browser drag of a tab, and cancels its start if that
+	// hasn't run yet.
+	function stopTabDrag() {
+		if (!tabDrag) return;
+		tabDrag.source.removeEventListener('dragend', endTabDrag);
+		window.removeEventListener('dragend', endTabDrag);
+		window.removeEventListener('drop', endTabDrag);
+		if (tabDrag.startFrame !== null) cancelAnimationFrame(tabDrag.startFrame);
+		tabDrag = null;
+	}
+
+	// Puts the dragged tab where it was dropped, or back where it was when it wasn't dropped on
+	// the layout.
 	function onDrop() {
 		if (!dragData) return;
 
@@ -942,6 +979,7 @@
 			window.removeEventListener('pagehide', closeAllPopouts);
 			if (retryRafId !== null) cancelAnimationFrame(retryRafId);
 			closeAllPopouts();
+			stopTabDrag();
 		};
 	});
 
