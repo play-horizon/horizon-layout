@@ -1,28 +1,11 @@
 <script lang="ts">
 	import HorizonLayout from '#lib/HorizonLayout.svelte';
-	import type {
-		FloatingRect,
-		Id,
-		KeyboardShortcut,
-		LayoutConfig,
-		Modifier,
-		NodeConfig,
-		SplitConfig,
-		TabGroupConfig,
-		View
-	} from '#lib/types.js';
+	import type { Id, KeyboardShortcut, LayoutConfig, Modifier, View } from '#lib/types.js';
 	import '#lib/horizon-layout.css';
 	import './demo-themes.css';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { createRawSnippet, mount, unmount } from 'svelte';
-	import {
-		buildNodeParentMap,
-		cloneConfig,
-		floatView,
-		nodeConfigType,
-		removeView,
-		simplifyTabGroup
-	} from '#lib/utils.js';
+	import { cloneConfig, floatView, removeView, validateConfig } from '#lib/utils.js';
 	import { themes, themeClassMap } from './themes.js';
 	import DemoPage from './DemoPage.svelte';
 	import NestedDemo from './NestedDemo.svelte';
@@ -38,6 +21,7 @@
 	import PopoutIcon from '~icons/mingcute/external-link-line';
 	import { defaultConfig, defaultPages, highestPageNumber, type DemoPageDef } from './pages.js';
 	import { lastTabGroup } from './layout-tree.js';
+	import { PopoutOrigins } from './popout-origins.js';
 	import {
 		buildKeyboardControls,
 		defaultBindings,
@@ -125,106 +109,24 @@
 		floatView(config, viewId, { x: 80 + offset, y: 60 + offset, width: 380, height: 260 });
 	}
 
+	const popoutOrigins = new PopoutOrigins();
+
 	function resetLayout() {
 		pages = defaultPages();
 		config = defaultConfig();
 		nextPageNumber = 1;
-		popoutsOriginalPositions = [];
-	}
-
-	// Where each popped-out view came from: its path in the docked tree, or its floating rect.
-	let popoutsOriginalPositions: { viewId: Id; position: number[]; rect?: FloatingRect }[] = [];
-
-	function popout(viewId: Id) {
-		if (config.popouts?.includes(viewId)) return;
-		popoutsOriginalPositions = popoutsOriginalPositions.filter((p) => p.viewId !== viewId);
-
-		const floatingGroup = config.floating?.find((group) => group.tabs.includes(viewId));
-		if (floatingGroup) {
-			const rect = { ...floatingGroup.rect };
-			removeView(config, viewId);
-			config.popouts = [...(config.popouts ?? []), viewId];
-			popoutsOriginalPositions.push({ viewId, position: [], rect });
-			return;
-		}
-		if (!config.root) return;
-
-		const configCopy = cloneConfig(config);
-		const position: number[] = [];
-		const walk = (node: NodeConfig): { tabGroup: TabGroupConfig; index: number } | null => {
-			if (nodeConfigType(node) === 'split') {
-				const split = node as SplitConfig;
-				for (let i = 0; i < split.views.length; i++) {
-					const result = walk(split.views[i]!);
-					if (result) {
-						position.push(i);
-						return result;
-					}
-				}
-				return null;
-			}
-			const tabGroup = node as TabGroupConfig;
-			for (let i = 0; i < tabGroup.tabs.length; i++) {
-				if (tabGroup.tabs[i] === viewId) {
-					position.push(i);
-					return { tabGroup, index: i };
-				}
-			}
-			return null;
-		};
-
-		const found = configCopy.root ? walk(configCopy.root) : null;
-		if (!found) return;
-
-		found.tabGroup.tabs.splice(found.index, 1);
-		found.tabGroup.activeTabIndex = Math.min(
-			found.tabGroup.activeTabIndex,
-			found.tabGroup.tabs.length - 1
-		);
-		simplifyTabGroup(found.tabGroup, buildNodeParentMap(configCopy.root!), configCopy);
-		configCopy.popouts = [...(configCopy.popouts ?? []), viewId];
-		popoutsOriginalPositions.push({ viewId, position });
-		config = configCopy;
+		popoutOrigins.clear();
 	}
 
 	function onPopoutClose(viewId: Id) {
-		const original = popoutsOriginalPositions.findLast((p) => p.viewId === viewId);
-		if (original?.rect) {
-			popoutsOriginalPositions = popoutsOriginalPositions.filter((p) => p !== original);
-			floatView(config, viewId, original.rect);
-			return;
-		}
-		if (!config.popouts?.includes(viewId)) return;
-		const position = popoutsOriginalPositions.reduceRight<number[]>(
-			(acc, p, i, arr) => (p.viewId === viewId ? (arr.splice(i, 1), p.position) : acc),
-			[]
-		);
-		const configCopy = cloneConfig(config);
-
-		if (configCopy.root) {
-			const place = (node: NodeConfig) => {
-				const index = position.pop() ?? 0;
-				if (nodeConfigType(node) === 'split') {
-					const split = node as SplitConfig;
-					if (index >= split.views.length) {
-						split.views.push({ tabs: [viewId], activeTabIndex: 0 });
-					} else {
-						place(split.views[index]!);
-					}
-				} else {
-					const tabGroup = node as TabGroupConfig;
-					tabGroup.tabs.splice(index, 0, viewId);
-				}
-			};
-			place(configCopy.root);
-		} else {
-			configCopy.root = { tabs: [viewId], activeTabIndex: 0 };
-		}
-
-		configCopy.popouts = configCopy.popouts?.filter((id) => id !== viewId);
-		if (configCopy.popouts?.length === 0) configCopy.popouts = undefined;
-
-		config = configCopy;
+		popoutOrigins.restore(config, viewId, (candidate) => {
+			try {
+				validateConfig(candidate, views, { minWidthRatio, minHeightRatio });
+				return true;
+			} catch {
+				return false;
+			}
+		});
 	}
 
 	let kbBindings = $state<Record<ActionId, KeyboardShortcut>>(structuredClone(defaultBindings));
@@ -342,7 +244,11 @@
 {/snippet}
 
 {#snippet popoutButton(viewId: Id)}
-	<IconButton icon={PopoutIcon} label="Pop out" onclick={() => popout(viewId)} />
+	<IconButton
+		icon={PopoutIcon}
+		label="Pop out"
+		onclick={() => popoutOrigins.popOut(config, viewId)}
+	/>
 {/snippet}
 
 {#snippet closeButton(viewId: Id)}
