@@ -851,11 +851,14 @@
 
 	const POPOUT_BLOCKED_TIMEOUT_MS = 500;
 
-	const popouts = new SvelteMap<Id, Popout>();
-	// Maps view id → timestamp (ms) when the popout was first blocked by the browser.
-	const pendingPopouts = new SvelteMap<Id, number>();
+	// The open popout windows, and the time (ms) each popout the browser blocks was first blocked
+	// at. Deliberately plain Maps: nothing renders them, and the effect below, which keeps them in
+	// line with the config, would otherwise depend on the state it writes.
+	const popouts = new Map<Id, Popout>();
+	const pendingPopouts = new Map<Id, number>();
 	let retryRafId: ReturnType<typeof requestAnimationFrame> | null = null;
 
+	// Opens and closes the popout windows to match the config's `popouts`.
 	$effect(() => {
 		if (!internalConfig) return;
 		const wanted = new Set(internalConfig.popouts ?? []);
