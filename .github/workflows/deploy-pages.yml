@@ -1,7 +1,10 @@
 name: Deploy to GitHub Pages
 
+# Deploys the demo site once CI has passed on main (check, lint, tests and build), never before.
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 
@@ -18,9 +21,19 @@ jobs:
   build:
     name: Build static site
     runs-on: ubuntu-latest
+    # Only a CI run of a push to this repository's main: a pull request from a fork's branch named
+    # main also matches the branch filter, and must never publish.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_repository.full_name == github.repository)
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The commit CI checked, not whatever main points at by now.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
 
