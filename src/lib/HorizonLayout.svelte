@@ -982,7 +982,20 @@
 
 		const mountedContent = mount(HorizonPopoutContent, {
 			target: popoutWindow.document.body,
-			props: { popout: popoutWindow, title: view.title, view, baseClass }
+			// Getters, so the window follows its view (a new title, in another language) and baseClass.
+			// A view gone from `views` leaves the window showing the last one it had.
+			props: {
+				popout: popoutWindow,
+				get title() {
+					return (views.get(id) ?? view).title;
+				},
+				get view() {
+					return views.get(id) ?? view;
+				},
+				get baseClass() {
+					return baseClass;
+				}
+			}
 		});
 
 		const handleClose = () => {

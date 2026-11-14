@@ -82,6 +82,17 @@ describe('popouts', () => {
 		expect(popup.document.body.textContent).toContain('Body of b');
 	});
 
+	it('follow their view when the views change', () => {
+		const popup = new FakePopup();
+		stubOpen(popup);
+		const { views } = renderLayout({ root: { tabs: ['a'], activeTabIndex: 0 }, popouts: ['b'] });
+
+		views.set('b', { ...view('b'), title: 'Renamed b' });
+		flushSync();
+
+		expect(popup.document.title).toBe('Renamed b');
+	});
+
 	it('close their window when the config drops them, without calling onPopoutClose', () => {
 		const popup = new FakePopup();
 		stubOpen(popup);
