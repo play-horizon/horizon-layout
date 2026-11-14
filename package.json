@@ -68,5 +68,13 @@
 	},
 	"peerDependencies": {
 		"svelte": "^5.0.0"
-	}
+	},
+	"devEngines": {
+		"runtime": {
+			"name": "node",
+			"version": ">=24.2.0",
+			"onFail": "error"
+		}
+	},
+	"packageManager": "pnpm@12.17.0"
 }
