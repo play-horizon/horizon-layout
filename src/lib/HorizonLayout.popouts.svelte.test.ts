@@ -1,10 +1,13 @@
 /**
  * Component tests of HorizonLayout's popout windows, rendered in jsdom with `window.open`
- * stubbed: opening them, the page's styles and theme they follow, closing them from the config,
- * from the window or by unmounting, and the fallback for windows the browser blocks.
+ * stubbed: opening them, the page's styles and theme they follow (and how the default theme draws
+ * their content), closing them from the config, from the window or by unmounting, and the
+ * fallback for windows the browser blocks.
  * @module
  */
 import { render } from '@testing-library/svelte';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { createRawSnippet, flushSync } from 'svelte';
 import { SvelteMap } from 'svelte/reactivity';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -81,6 +84,36 @@ describe('popouts', () => {
 		expect(open).toHaveBeenCalledTimes(1);
 		expect(popup.document.title).toBe('Title of b');
 		expect(popup.document.body.textContent).toContain('Body of b');
+	});
+
+	it('show their view on a background, scrolling, with no body margin, in the default theme', () => {
+		// Read from disk: vitest hands CSS imports to the tests empty. The popout copies it.
+		const theme = document.createElement('style');
+		theme.textContent = readFileSync(join(import.meta.dirname, 'horizon-layout.css'), 'utf8');
+		document.head.append(theme);
+		// A frame's window, which computes styles, as the popout window.
+		const frame = document.createElement('iframe');
+		document.body.append(frame);
+		try {
+			const popup = frame.contentWindow!;
+			// The browser's default stylesheet, which jsdom doesn't apply: a margin around the body.
+			const browserDefaults = popup.document.createElement('style');
+			browserDefaults.textContent = 'body { margin: 8px; }';
+			popup.document.head.append(browserDefaults);
+			stubOpen(popup as unknown as FakePopup);
+			renderLayout({ root: { tabs: ['a'], activeTabIndex: 0 }, popouts: ['b'] });
+			const content = popup.document.querySelector(
+				'.horizon-layout__popout > .horizon-layout__content'
+			)!;
+			const style = popup.getComputedStyle(content);
+			// --hl-card of the dark theme, #141a2b: the background of a docked view's content.
+			expect(style.backgroundColor).toBe('rgb(20, 26, 43)');
+			expect(style.overflow).toBe('auto');
+			expect(popup.getComputedStyle(popup.document.body).margin).toBe('0px');
+		} finally {
+			frame.remove();
+			theme.remove();
+		}
 	});
 
 	it('follow their view when the views change', () => {

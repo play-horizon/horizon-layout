@@ -444,6 +444,12 @@
 	inset: 2px 50% 2px 2px;
 }
 
+/* A popout's root fills the window (100vw by 100vh): the browser's default margin on its body
+   would push it past the window's edges and add the window's own scrollbars. */
+body:has(> .horizon-layout__popout) {
+	margin: 0;
+}
+
 .horizon-layout__popout {
 	width: 100vw;
 	height: 100vh;
@@ -454,10 +460,13 @@
 	font-size: 0.8125rem;
 }
 
+/* A popout shows its view with no tab group around it: like a maximised view, it takes the
+   background of a tab group's content and its scrolling. */
 .horizon-layout__popout .horizon-layout__content {
 	flex: 1;
 	min-height: 0;
-	overflow: hidden;
+	overflow: auto;
+	background: var(--hl-card);
 }
 
 .horizon-layout-floating {

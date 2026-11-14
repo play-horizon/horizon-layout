@@ -280,8 +280,8 @@ override them to restyle it:
 
 | Variable                                     | Used for                                                                |
 | -------------------------------------------- | ----------------------------------------------------------------------- |
-| `--hl-background`, `--hl-foreground`         | The layout's and the popouts' background and text, the tab bars         |
-| `--hl-card`                                  | Tab groups and their content                                            |
+| `--hl-background`, `--hl-foreground`         | The layout's background and tab bars, its text and the popouts'         |
+| `--hl-card`                                  | Tab groups and their content, a maximised view, a popout's content      |
 | `--hl-secondary`, `--hl-accent`              | The active tab, and the active tab of a focused tab list                |
 | `--hl-tab-inactive-color`                    | The titles of inactive tabs                                             |
 | `--hl-muted-foreground`                      | The title of a hovered tab                                              |
@@ -298,8 +298,11 @@ group has only its right and bottom borders (the lines to its neighbours, or the
 edges), and the docked layout's wrapper (`.horizon-layout__content--docked`) the left and top
 ones. A floating group's tab group has its full border. A theme that gives every group a full
 border instead shows two lines side by side where panes meet. A maximised view
-(`.horizon-layout__content--maximized`), shown with no tab group around it, has its full border,
-the background of a tab group's content (`--hl-card`) and scrolls on its own.
+(`.horizon-layout__content--maximized`) and a popout's content
+(`.horizon-layout__popout .horizon-layout__content`), shown with no tab group around them, have the
+background of a tab group's content (`--hl-card`) and scroll on their own; a maximised view also
+has its full border. The body of a popout window has no margin, so the popout's root, the size of
+the window, fits in it.
 
 ## CSS classes
 
@@ -311,7 +314,7 @@ All elements receive BEM classes derived from `baseClass` (`"horizon-layout"` by
 | `.horizon-layout__content`                                         | Content wrapper (or maximised view wrapper)                                                                                                                                                                                                                  |
 | `.horizon-layout__content--maximized`                              | Added when a view is maximised (the default theme gives it a frame, a background and scrolling)                                                                                                                                                              |
 | `.horizon-layout__content--docked`                                 | The docked layout's wrapper (draws its left and top border)                                                                                                                                                                                                  |
-| `.horizon-layout__popout`                                          | Popout window root element                                                                                                                                                                                                                                   |
+| `.horizon-layout__popout`                                          | Popout window root element (the default theme gives the content wrapper in it a background and scrolling)                                                                                                                                                    |
 | `.horizon-layout__floating`                                        | Layer holding the floating groups, over the docked layout                                                                                                                                                                                                    |
 | `.horizon-layout-floating`                                         | A floating group's frame (holds a `.horizon-layout-tabgroup`)                                                                                                                                                                                                |
 | `.horizon-layout-floating--focused`                                | Added while focus is inside the floating group                                                                                                                                                                                                               |
