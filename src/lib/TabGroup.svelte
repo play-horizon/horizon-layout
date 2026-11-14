@@ -79,16 +79,9 @@ Internal to HorizonLayout, rendered by LayoutNode for a docked group and by Floa
 		}
 	}
 
+	// The layout sets the drag image and the allowed effect.
 	function startTabDrag(event: DragEvent, tabId: Id) {
-		if (!event.dataTransfer) return;
 		event.stopPropagation();
-		event.dataTransfer.dropEffect = 'move';
-		const currentTarget = event.currentTarget as HTMLElement;
-		event.dataTransfer.setDragImage(
-			currentTarget,
-			currentTarget.offsetWidth / 2,
-			currentTarget.offsetHeight / 2
-		);
 		onStartTabDrag(event, config, tabId);
 	}
 
