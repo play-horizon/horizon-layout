@@ -1,7 +1,7 @@
 /**
  * Component tests of tab groups, rendered in jsdom through `LayoutHarness` (src/test): the
- * WAI-ARIA tabs semantics of the tab list, selecting tabs with the pointer and the keyboard, and
- * dragging a tab over a group.
+ * WAI-ARIA tabs semantics of the tab list, selecting tabs with the pointer and the keyboard,
+ * dragging a tab over a group, and what a touch drag of a tab needs.
  * @module
  */
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
@@ -9,6 +9,8 @@ import { tick } from 'svelte';
 import { describe, expect, it } from 'vitest';
 import { fakeDataTransfer } from '../test/drag.ts';
 import LayoutHarness from '../test/LayoutHarness.svelte';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { FloatingGroupConfig, LayoutConfig, SplitConfig } from './types.ts';
 
 const dataTransfer = fakeDataTransfer;
@@ -252,5 +254,49 @@ describe('tab groups', () => {
 		});
 		expect(notCancelled).toBe(false);
 		expect(transfer.dropEffect).toBe('move');
+	});
+});
+
+describe('touch drags of tabs', () => {
+	// Read from disk: vitest hands CSS imports to the tests empty.
+	const defaultTheme = readFileSync(join(import.meta.dirname, 'horizon-layout.css'), 'utf8');
+
+	/** The declarations of the default theme's rule for exactly `selector`. */
+	function ruleOf(selector: string): string {
+		const start = defaultTheme.indexOf(`\n${selector} {`);
+		if (start === -1) throw new Error(`no rule ${selector}`);
+		return defaultTheme.slice(start, defaultTheme.indexOf('}', start));
+	}
+
+	it('have the tabs draggable, a long press lifting them', () => {
+		renderGroup();
+		for (const tab of screen.getAllByRole('tab'))
+			expect(tab.getAttribute('draggable')).toBe('true');
+	});
+
+	it('are off with disableDragAndDrop', () => {
+		render(LayoutHarness, {
+			props: {
+				config: { root: { tabs: ['a', 'b'], activeTabIndex: 0 } },
+				ids: ['a', 'b'],
+				disableDragAndDrop: true
+			}
+		});
+		for (const tab of screen.getAllByRole('tab'))
+			expect(tab.getAttribute('draggable')).toBe('false');
+	});
+
+	it('leave a docked tab bar to the browser’s own touch handling', () => {
+		renderGroup();
+		const tabList = screen.getByRole('tablist');
+		expect(tabList.style.touchAction).toBe('');
+		expect(tabList.parentElement!.style.touchAction).toBe('');
+	});
+
+	it('keep a tab from being selected as text or panned, in every engine, in the default theme', () => {
+		const tab = ruleOf('.horizon-layout-tabgroup__tab');
+		expect(tab).toContain('-webkit-user-select: none;');
+		expect(tab).toContain('\tuser-select: none;');
+		expect(tab).toContain('touch-action: none;');
 	});
 });

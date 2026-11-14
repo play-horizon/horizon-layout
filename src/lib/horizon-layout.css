@@ -251,6 +251,9 @@
 	background: transparent;
 	border-radius: var(--hl-radius);
 	color: var(--hl-tab-inactive-color);
+	/* No text selection, so a long press lifts the tab on a touch screen; Safari reads only the
+	   prefixed property. No panning either, which would cancel the drag. */
+	-webkit-user-select: none;
 	user-select: none;
 	touch-action: none;
 	outline: none;

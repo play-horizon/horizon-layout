@@ -15,6 +15,7 @@ A HorizonLayout for the component tests: one view per id, titled "Title of <id>"
 		keyboardControls,
 		minWidthRatio,
 		maxDepth,
+		disableDragAndDrop,
 		skipValidation
 	}: {
 		/** The layout, bound both ways. */
@@ -27,6 +28,8 @@ A HorizonLayout for the component tests: one view per id, titled "Title of <id>"
 		minWidthRatio?: number;
 		/** Passed to HorizonLayout; its default when undefined. */
 		maxDepth?: number;
+		/** Passed to HorizonLayout; its default when undefined. */
+		disableDragAndDrop?: boolean;
 		/** Passed to HorizonLayout; its default when undefined. */
 		skipValidation?: boolean;
 	} = $props();
@@ -60,8 +63,17 @@ A HorizonLayout for the component tests: one view per id, titled "Title of <id>"
 		{keyboardControls}
 		{minWidthRatio}
 		{maxDepth}
+		{disableDragAndDrop}
 		{skipValidation}
 	/>
 {:else}
-	<HorizonLayout bind:config {views} {translations} {minWidthRatio} {maxDepth} {skipValidation} />
+	<HorizonLayout
+		bind:config
+		{views}
+		{translations}
+		{minWidthRatio}
+		{maxDepth}
+		{disableDragAndDrop}
+		{skipValidation}
+	/>
 {/if}
