@@ -285,6 +285,7 @@
 				<h2>Theme</h2>
 				<select
 					class="select"
+					aria-label="Theme"
 					value={mainTheme}
 					onchange={(e) => (mainTheme = (e.currentTarget as HTMLSelectElement).value)}
 				>

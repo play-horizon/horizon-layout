@@ -52,12 +52,14 @@ describe('demo page', () => {
 	it('keeps the nested layout mounted when another page is removed', async () => {
 		render(Page);
 		flushSync();
-		const theme = document.querySelector<HTMLSelectElement>('#nested-theme-select')!;
+		const theme = screen.getByRole('combobox', {
+			name: 'Nested layout theme'
+		}) as HTMLSelectElement;
 		await fireEvent.change(theme, { target: { value: 'light' } });
 
 		await fireEvent.click(screen.getByLabelText('Remove Files'));
 		await tick();
-		expect(document.querySelector('#nested-theme-select')).toBe(theme);
+		expect(screen.getByRole('combobox', { name: 'Nested layout theme' })).toBe(theme);
 		expect(theme.value).toBe('light');
 	});
 
@@ -80,6 +82,9 @@ describe('demo page', () => {
 		expect(tabTitles()).toEqual(['Nested layout', 'Page 4']);
 		const save = screen.getByRole('checkbox', { name: 'Save to localStorage' }) as HTMLInputElement;
 		expect(save.checked).toBe(true);
+		expect((screen.getByRole('combobox', { name: 'Theme' }) as HTMLSelectElement).value).toBe(
+			'nord'
+		);
 	});
 
 	it('saves the state while saving is on, and forgets it when turned off', async () => {

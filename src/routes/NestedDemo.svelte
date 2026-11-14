@@ -83,8 +83,8 @@
 				<section class="nested-section">
 					<h2>Theme</h2>
 					<select
-						id="nested-theme-select"
 						class="nested-select"
+						aria-label="Nested layout theme"
 						value={nestedTheme}
 						onchange={(e) => (nestedTheme = (e.currentTarget as HTMLSelectElement).value)}
 					>
