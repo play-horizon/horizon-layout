@@ -25,6 +25,36 @@ Requires Svelte 5.29 or later (the version that added `{@attach}`) as a peer dep
 
 ---
 
+## Upgrading from 1.x
+
+What changes from 1.0.5 to 2.0.0, where code written for 1.0.5 may need a change:
+
+- The Svelte peer dependency is `^5.29.0` (`{@attach}`), not `^5.0.0`.
+- `validateConfig` refuses more configs: a view shown in two places (a tab and a popout), a docked
+  layout deeper than `maxDepth`, an option out of its range (a minimum ratio outside 0 to 0.5, a
+  `maxDepth` that isn't an integer of at least 1). Its errors name the faulty field by its path.
+- `keyboardControls`: a category left out keeps its built-in controls. In 1.0.5, passing
+  `keyboardControls` dropped every category it left out.
+- No shortcut matches a key held with Meta (Command): those keys stay the browser's.
+- `onPopoutClose` and `onPopoutBlocked` are called once the bound config no longer lists the
+  popout, a moment after the window closed or was blocked, not during the change.
+- Split handles are `role="separator"` (WAI-ARIA window splitters), not `slider`.
+- The tab markup. In 1.0.5 the tab list's element held the tabs, each a focusable `role="tab"`
+  (`tabindex="-1"`, focused by a click) holding its controls, which screen readers didn't read
+  there. In 2.0.0 the tab list (`.horizon-layout-tabgroup__tablist`, out of sight) owns its tabs
+  through `aria-owns`, keeps the focus and points at the active tab with `aria-activedescendant`;
+  each tab is laid out in `.horizon-layout-tabgroup__tab` as the tab itself (`role="tab"`, not
+  focusable, `.horizon-layout-tabgroup__tab-title`) and its controls (`role="group"`, named by the
+  tab). Code or tests that look for the controls inside a tab, for the tabs inside the tab list's
+  element, or for a focused tab, and themes that style the focused tab list as
+  `.horizon-layout-tabgroup__tabs:focus-visible`, need updating (see [CSS classes](#css-classes)).
+- Keys pressed in a tab's controls stay theirs: they don't reach the tab list's keyboard controls.
+- The default CSS draws every edge between panes once: docked tab groups have only their right and
+  bottom borders, and the docked layout's wrapper (`.horizon-layout__content--docked`) the left and
+  top ones.
+
+---
+
 ## Quick start
 
 ```svelte
