@@ -143,12 +143,14 @@ describe('floating groups', () => {
 
 	it('keep a touch on their tab bar from panning, which would cancel the move', () => {
 		renderLayout({ root: docked(), floating: [floating('d')] });
-		const [docked1] = screen.getAllByRole('tablist');
-		const tabList = within(frame('d')).getByRole('tablist');
+		const tabsOf = (container: Element) =>
+			container.querySelector<HTMLElement>('.horizon-layout-tabgroup__tabs')!;
+		const floatingTabs = tabsOf(frame('d'));
+		const dockedTabs = tabsOf(document.querySelector('.horizon-layout__content--docked')!);
 
-		expect(tabList.style.touchAction).toBe('none');
-		expect(tabList.parentElement!.style.touchAction).toBe('none');
-		expect(docked1!.style.touchAction).toBe('');
+		expect(floatingTabs!.style.touchAction).toBe('none');
+		expect(floatingTabs!.parentElement!.style.touchAction).toBe('none');
+		expect(dockedTabs!.style.touchAction).toBe('');
 	});
 
 	it('move by the pointer last pressed with the primary button, until it is cancelled', async () => {
@@ -186,12 +188,16 @@ describe('floating groups', () => {
 		expect(rectOf(state)).toEqual({ x: 100, y: 50, width: 300, height: 200 });
 	});
 
-	it('don’t move when the press is on a tab', async () => {
+	it('don’t move when the press is on a tab, its title or the rest of its pill', async () => {
 		const state = renderLayout({ root: docked(), floating: [floating('d')] });
-		const tab = within(frame('d')).getByRole('tab');
+		const title = within(frame('d')).getByRole('tab');
+		const pill = title.parentElement!;
 
-		await fireEvent.pointerDown(tab, { button: 0, pointerId: 1, clientX: 200, clientY: 60 });
-		await moveTo(tab, 1, 250, 80);
+		for (const [pointerId, pressed] of [title, pill].entries()) {
+			await fireEvent.pointerDown(pressed, { button: 0, pointerId, clientX: 200, clientY: 60 });
+			await moveTo(pressed, pointerId, 250, 80);
+			await release(pressed, pointerId);
+		}
 		expect(rectOf(state)).toEqual({ x: 100, y: 50, width: 300, height: 200 });
 	});
 

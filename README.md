@@ -125,9 +125,16 @@ A tab group floating over the docked layout; see [Floating panels](#floating-pan
 interface View {
 	title: string;
 	snippet: Snippet; // panel body
-	tabControls?: Snippet<[Id]>[]; // optional controls rendered inside the tab, receives the viewId as argument
+	tabControls?: Snippet<[Id]>[]; // optional controls shown in the tab, receives the viewId as argument
 }
 ```
+
+A tab's controls are shown in the tab, after its title, and are their own group of buttons for
+assistive technologies, named by the tab's title (a screen reader reads "Files, group, Close,
+button"), reached with Tab after the tab list. Give each one a name, for example
+`aria-label="Close"`. They aren't inside the tab element: a tab's children are presentational, and
+a tab list may own tabs only, so the tab list owns its tabs through `aria-owns` and the controls sit
+beside them (see [CSS classes](#css-classes)).
 
 Pass views as a `SvelteMap<Id, View>`. The map is reactive: adding or removing a view validates
 the config again, so take a view out of `config` (with `removeView`) before, or in the same
@@ -219,9 +226,16 @@ interface LayoutTranslations {
 ## Styling
 
 HorizonLayout renders plain elements with BEM classes (below) and sets inline only the styles its
-logic depends on (the splits' flex layout and pane sizes, the floating groups' place, size and
-stacking, and their resize handles). Everything else comes from a stylesheet: import the
-package's default theme,
+logic depends on:
+
+- the root's `position: relative`, and the splits' flex layout and pane sizes;
+- the stacking of the docked layout and of the floating layer (`isolation: isolate`), the floating
+  layer's `position: absolute; inset: 0; pointer-events: none`, and each floating group's place,
+  size, `z-index` and `pointer-events: auto`, and its resize handles;
+- `touch-action: none` on the split handles, and on a floating group's tab bar and edges;
+- the tab list, kept out of sight (it owns the tabs and takes the focus).
+
+Everything else comes from a stylesheet: import the package's default theme,
 
 ```ts
 import 'horizon-layout/horizon-layout.css';
@@ -258,55 +272,56 @@ border instead shows two lines side by side where panes meet.
 
 All elements receive BEM classes derived from `baseClass` (`"horizon-layout"` by default).
 
-| Class                                                              | Element                                                       |
-| ------------------------------------------------------------------ | ------------------------------------------------------------- |
-| `.horizon-layout`                                                  | Root container                                                |
-| `.horizon-layout__content`                                         | Content wrapper (or maximised view wrapper)                   |
-| `.horizon-layout__content--maximized`                              | Added when a view is maximised                                |
-| `.horizon-layout__content--docked`                                 | The docked layout's wrapper (draws its left and top border)   |
-| `.horizon-layout__popout`                                          | Popout window root element                                    |
-| `.horizon-layout__floating`                                        | Layer holding the floating groups, over the docked layout     |
-| `.horizon-layout-floating`                                         | A floating group's frame (holds a `.horizon-layout-tabgroup`) |
-| `.horizon-layout-floating--focused`                                | Added while focus is inside the floating group                |
-| `.horizon-layout-floating__resizer`                                | A pointer handle on an edge or corner of a floating group     |
-| `.horizon-layout-floating__resizer--n/ne/e/se/s/sw/w/nw`           | The handle's edge or corner                                   |
-| `.horizon-layout-split`                                            | A split container                                             |
-| `.horizon-layout-split--horizontal` / `--vertical`                 | Direction modifier                                            |
-| `.horizon-layout-split__pane`                                      | Individual pane inside a split                                |
-| `.horizon-layout-split__pane--horizontal` / `--vertical`           | Direction modifier on each pane                               |
-| `.horizon-layout-split__resizer`                                   | Drag handle between panes                                     |
-| `.horizon-layout-split__resizer--horizontal` / `--vertical`        | Direction modifier on resizer container                       |
-| `.horizon-layout-split__resizer--active`                           | Added while the resizer is focused/dragged                    |
-| `.horizon-layout-split__resizer-handle`                            | Focusable window splitter (`role="separator"`) in the resizer |
-| `.horizon-layout-split__resizer-handle--horizontal` / `--vertical` | Direction modifier on handle                                  |
-| `.horizon-layout-split__resizer-handle--active`                    | Added while the resizer is focused/dragged                    |
-| `.horizon-layout-split__ratio`                                     | Floating ratio label (visible when `showSplitRatio`)          |
-| `.horizon-layout-split__ratio--horizontal` / `--vertical`          | Direction modifier on ratio label                             |
-| `.horizon-layout-split__ratio--active`                             | Added while the matching resizer is active                    |
-| `.horizon-layout-tabgroup`                                         | A tab group (`<section>`)                                     |
-| `.horizon-layout-tabgroup__tab-bar`                                | Tab bar row                                                   |
-| `.horizon-layout-tabgroup__tabs`                                   | Tab list (`role="tablist"`)                                   |
-| `.horizon-layout-tabgroup__tab`                                    | Individual tab                                                |
-| `.horizon-layout-tabgroup__tab--active`                            | Active tab modifier                                           |
-| `.horizon-layout-tabgroup__tab-title`                              | Tab label text                                                |
-| `.horizon-layout-tabgroup__tab-controls`                           | Container for per-tab snippets                                |
-| `.horizon-layout-tabgroup__tab-control`                            | Individual per-tab control wrapper                            |
-| `.horizon-layout-tabgroup__tab-drop-hint`                          | Visible insertion marker before/between/after tabs            |
-| `.horizon-layout-tabgroup__tab-drop-hint--{n}`                     | Numeric index modifier (0 … tabs.length)                      |
-| `.horizon-layout-tabgroup__tab-drop-hint--end`                     | Modifier for the trailing insertion marker                    |
-| `.horizon-layout-tabgroup__tab-drop-hint--hover`                   | Added when a tab insertion marker is active                   |
-| `.horizon-layout-tabgroup__tab-drop-zone`                          | Invisible tab insertion hit target                            |
-| `.horizon-layout-tabgroup__tab-drop-zone--{n}`                     | Numeric index modifier (0 … tabs.length)                      |
-| `.horizon-layout-tabgroup__tab-drop-zone--end`                     | Modifier for the trailing hit target                          |
-| `.horizon-layout-tabgroup__controls`                               | Container for shared tab-group snippets                       |
-| `.horizon-layout-tabgroup__control`                                | Individual shared control wrapper                             |
-| `.horizon-layout-tabgroup__body`                                   | Content + drop-zone wrapper                                   |
-| `.horizon-layout-tabgroup__content`                                | Active view content area                                      |
-| `.horizon-layout-tabgroup__drop-zones`                             | Drop-zone overlay (visible during drag)                       |
-| `.horizon-layout-tabgroup__drop-hint`                              | Visible pane split hint for the active drop side              |
-| `.horizon-layout-tabgroup__drop-hint--top/right/bottom/left`       | Drop hint side modifier                                       |
-| `.horizon-layout-tabgroup__drop-zone`                              | Invisible pane split hit target                               |
-| `.horizon-layout-tabgroup__drop-zone--top/right/bottom/left`       | Drop-zone side modifier                                       |
+| Class                                                              | Element                                                                                                                                                                                            |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.horizon-layout`                                                  | Root container                                                                                                                                                                                     |
+| `.horizon-layout__content`                                         | Content wrapper (or maximised view wrapper)                                                                                                                                                        |
+| `.horizon-layout__content--maximized`                              | Added when a view is maximised                                                                                                                                                                     |
+| `.horizon-layout__content--docked`                                 | The docked layout's wrapper (draws its left and top border)                                                                                                                                        |
+| `.horizon-layout__popout`                                          | Popout window root element                                                                                                                                                                         |
+| `.horizon-layout__floating`                                        | Layer holding the floating groups, over the docked layout                                                                                                                                          |
+| `.horizon-layout-floating`                                         | A floating group's frame (holds a `.horizon-layout-tabgroup`)                                                                                                                                      |
+| `.horizon-layout-floating--focused`                                | Added while focus is inside the floating group                                                                                                                                                     |
+| `.horizon-layout-floating__resizer`                                | A pointer handle on an edge or corner of a floating group                                                                                                                                          |
+| `.horizon-layout-floating__resizer--n/ne/e/se/s/sw/w/nw`           | The handle's edge or corner                                                                                                                                                                        |
+| `.horizon-layout-split`                                            | A split container                                                                                                                                                                                  |
+| `.horizon-layout-split--horizontal` / `--vertical`                 | Direction modifier                                                                                                                                                                                 |
+| `.horizon-layout-split__pane`                                      | Individual pane inside a split                                                                                                                                                                     |
+| `.horizon-layout-split__pane--horizontal` / `--vertical`           | Direction modifier on each pane                                                                                                                                                                    |
+| `.horizon-layout-split__resizer`                                   | Drag handle between panes                                                                                                                                                                          |
+| `.horizon-layout-split__resizer--horizontal` / `--vertical`        | Direction modifier on resizer container                                                                                                                                                            |
+| `.horizon-layout-split__resizer--active`                           | Added while the resizer is focused/dragged                                                                                                                                                         |
+| `.horizon-layout-split__resizer-handle`                            | Focusable window splitter (`role="separator"`) in the resizer                                                                                                                                      |
+| `.horizon-layout-split__resizer-handle--horizontal` / `--vertical` | Direction modifier on handle                                                                                                                                                                       |
+| `.horizon-layout-split__resizer-handle--active`                    | Added while the resizer is focused/dragged                                                                                                                                                         |
+| `.horizon-layout-split__ratio`                                     | Floating ratio label (visible when `showSplitRatio`)                                                                                                                                               |
+| `.horizon-layout-split__ratio--horizontal` / `--vertical`          | Direction modifier on ratio label                                                                                                                                                                  |
+| `.horizon-layout-split__ratio--active`                             | Added while the matching resizer is active                                                                                                                                                         |
+| `.horizon-layout-tabgroup`                                         | A tab group (`<section>`)                                                                                                                                                                          |
+| `.horizon-layout-tabgroup__tab-bar`                                | Tab bar row                                                                                                                                                                                        |
+| `.horizon-layout-tabgroup__tablist`                                | Tab list (`role="tablist"`), out of sight: it owns the tabs, takes the focus, and its focus ring is drawn on the active tab                                                                        |
+| `.horizon-layout-tabgroup__tabs`                                   | The strip of tabs as laid out, with their controls, the drop hints and the tab list. Keep it unpositioned: the out-of-sight tab list is placed against the tab bar, outside what the strip scrolls |
+| `.horizon-layout-tabgroup__tab`                                    | A tab as seen: its title and its controls                                                                                                                                                          |
+| `.horizon-layout-tabgroup__tab--active`                            | Active tab modifier                                                                                                                                                                                |
+| `.horizon-layout-tabgroup__tab-title`                              | The tab itself (`role="tab"`), its title                                                                                                                                                           |
+| `.horizon-layout-tabgroup__tab-controls`                           | The tab's controls (`role="group"`, named by the tab)                                                                                                                                              |
+| `.horizon-layout-tabgroup__tab-control`                            | Individual per-tab control wrapper                                                                                                                                                                 |
+| `.horizon-layout-tabgroup__tab-drop-hint`                          | Visible insertion marker before/between/after tabs                                                                                                                                                 |
+| `.horizon-layout-tabgroup__tab-drop-hint--{n}`                     | Numeric index modifier (0 … tabs.length)                                                                                                                                                           |
+| `.horizon-layout-tabgroup__tab-drop-hint--end`                     | Modifier for the trailing insertion marker                                                                                                                                                         |
+| `.horizon-layout-tabgroup__tab-drop-hint--hover`                   | Added when a tab insertion marker is active                                                                                                                                                        |
+| `.horizon-layout-tabgroup__tab-drop-zone`                          | Invisible tab insertion hit target                                                                                                                                                                 |
+| `.horizon-layout-tabgroup__tab-drop-zone--{n}`                     | Numeric index modifier (0 … tabs.length)                                                                                                                                                           |
+| `.horizon-layout-tabgroup__tab-drop-zone--end`                     | Modifier for the trailing hit target                                                                                                                                                               |
+| `.horizon-layout-tabgroup__controls`                               | Container for shared tab-group snippets                                                                                                                                                            |
+| `.horizon-layout-tabgroup__control`                                | Individual shared control wrapper                                                                                                                                                                  |
+| `.horizon-layout-tabgroup__body`                                   | Content + drop-zone wrapper                                                                                                                                                                        |
+| `.horizon-layout-tabgroup__content`                                | Active view content area                                                                                                                                                                           |
+| `.horizon-layout-tabgroup__drop-zones`                             | Drop-zone overlay (visible during drag)                                                                                                                                                            |
+| `.horizon-layout-tabgroup__drop-hint`                              | Visible pane split hint for the active drop side                                                                                                                                                   |
+| `.horizon-layout-tabgroup__drop-hint--top/right/bottom/left`       | Drop hint side modifier                                                                                                                                                                            |
+| `.horizon-layout-tabgroup__drop-zone`                              | Invisible pane split hit target                                                                                                                                                                    |
+| `.horizon-layout-tabgroup__drop-zone--top/right/bottom/left`       | Drop-zone side modifier                                                                                                                                                                            |
 
 ---
 
@@ -350,7 +365,9 @@ position in the split as its value (`aria-valuenow`, from `formatRatioForAria`, 
 | `Alt + ←/↑/→/↓`    | Split active tab out into a new pane in that direction |
 | `Escape`           | Unselect/Blur the tab list                             |
 
-A docked group's active tab is split out only when the group has two tabs or more.
+The keys work on the focused tab list itself: keys pressed in a tab's controls (a close button, a
+text field) are left to them. A docked group's active tab is split out only when the group has two
+tabs or more.
 
 In a floating group's tab list, the moves between groups dock the active tab instead:
 `Ctrl + ←/↑/→/↓` moves it into the docked group on that side of the layout, `Alt + ←/↑/→/↓` makes

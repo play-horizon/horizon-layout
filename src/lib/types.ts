@@ -22,8 +22,10 @@ export interface View {
 	/** The panel body, rendered inside the active tab's content area. */
 	snippet: Snippet;
 	/**
-	 * Controls rendered inside the tab, to the right of the title (for example a close button or
-	 * a badge), each given the view's id.
+	 * Controls shown in the tab, to the right of the title (for example a close button or a
+	 * badge), each given the view's id. They are a group named by the tab's title, beside the tab
+	 * element rather than in it, so assistive technologies read them and Tab reaches them: give
+	 * each button a name (for example `aria-label="Close"`).
 	 */
 	tabControls?: Snippet<[Id]>[];
 }

@@ -37,16 +37,17 @@ describe('demo page', () => {
 		render(Page);
 		flushSync();
 
-		const nested = screen.getByRole('tab', { name: /Nested layout/ });
-		await fireEvent.click(within(nested).getByLabelText('Pop out'));
+		const controls = screen.getByRole('group', { name: 'Nested layout' });
+		await fireEvent.click(within(controls).getByRole('button', { name: 'Pop out' }));
 		await tick();
 		expect(tabTitles()).not.toContain('Nested layout');
 		expect(frames).toHaveLength(1);
 
 		frames[0]!.contentWindow!.dispatchEvent(new Event('pagehide'));
 		await tick();
-		const restored = screen.getByRole('tab', { name: /Nested layout/ });
-		expect(within(restored.closest('[role="tablist"]')!).getAllByRole('tab')).toHaveLength(1);
+		const restored = screen.getByRole('tab', { name: 'Nested layout' });
+		const tabs = restored.closest('.horizon-layout-tabgroup__tabs')!;
+		expect(within(tabs as HTMLElement).getAllByRole('tab')).toHaveLength(1);
 	});
 
 	it('keeps the nested layout mounted when another page is removed', async () => {

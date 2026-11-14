@@ -61,10 +61,26 @@ Internal to HorizonLayout, rendered by LayoutNode for a docked group and by Floa
 		return `${uid}-tab-${index}`;
 	}
 
+	// The tab list element, which takes the focus for the group.
+	let tabListElement: HTMLElement | null = null;
+
 	function handleTabBarPointerDown(event: PointerEvent) {
 		if (!onMoveStart || !(event.target instanceof Element)) return;
-		if (event.target.closest(`[role="tab"], .${CSS.escape(baseClass)}__controls`)) return;
+		const base = CSS.escape(baseClass);
+		if (event.target.closest(`.${base}__tab, .${base}__controls`)) return;
 		onMoveStart(event);
+	}
+
+	// A press on the tabs, but not on a tab's controls, focuses the tab list, whose keys select
+	// tabs, as a press inside a focusable tab list would.
+	function handleTabsClick(event: MouseEvent) {
+		if (
+			event.target instanceof Element &&
+			event.target.closest(`.${CSS.escape(baseClass)}__tab-controls`)
+		) {
+			return;
+		}
+		tabListElement?.focus({ preventScroll: true });
 	}
 
 	function handleKeyDown(event: KeyboardEvent) {
@@ -152,19 +168,38 @@ Internal to HorizonLayout, rendered by LayoutNode for a docked group and by Floa
 			style:touch-action={onMoveStart ? 'none' : undefined}
 			onpointerdown={handleTabBarPointerDown}
 		>
-			<!-- Tab list - keyboard navigation is handled on the list container. -->
+			<!-- A press here focuses the tab list, whose keys stand for these pointer actions. -->
+			<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 			<div
-				role="tablist"
-				aria-label={translations.tabList(views.get(activeTab ?? '')?.title ?? '')}
-				tabindex={0}
 				class="{baseClass}__tabs"
 				style:touch-action={onMoveStart ? 'none' : undefined}
-				aria-activedescendant={activeTab === undefined
-					? undefined
-					: tabElementId(config.activeTabIndex)}
-				onkeydown={handleKeyDown}
-				{@attach (element) => registerTabList(config, element)}
+				onclick={handleTabsClick}
 			>
+				<!-- The tab list holds no element itself: it owns its tabs through aria-owns. A tab list may
+				own tabs only (WAI-ARIA, and axe's aria-required-children), and a tab's children are
+				presentational, so a tab's controls (its close button) can sit neither inside a tab nor
+				inside the tab list's element without disappearing for assistive technologies or breaking
+				the list. The tabs are laid out, each with its controls beside it in one pill, after this
+				element in the strip that scrolls them, which a focusable element inside lets the keyboard
+				reach; the tab list keeps the focus for the group and points at the active tab with
+				aria-activedescendant, and the controls are each tab's group of buttons, reached with Tab.
+				Out of sight, not out of reach: the focus ring is drawn on the active tab. -->
+				<div
+					role="tablist"
+					class="{baseClass}__tablist"
+					style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%);"
+					aria-label={translations.tabList(views.get(activeTab ?? '')?.title ?? '')}
+					aria-owns={config.tabs.map((_, index) => tabElementId(index)).join(' ')}
+					tabindex={0}
+					aria-activedescendant={activeTab === undefined
+						? undefined
+						: tabElementId(config.activeTabIndex)}
+					onkeydown={handleKeyDown}
+					{@attach (element) => {
+						tabListElement = element;
+						return registerTabList(config, element);
+					}}
+				></div>
 				{#each config.tabs as tabId, index (tabId)}
 					{@const tab = views.get(tabId)}
 					<div
@@ -185,21 +220,30 @@ Internal to HorizonLayout, rendered by LayoutNode for a docked group and by Floa
 						></div>
 					{/if}
 					{@const isActive = index === config.activeTabIndex}
-					<!-- Not focusable itself: a press focuses the tab list around it, whose keys select tabs. -->
-					<!-- svelte-ignore a11y_interactive_supports_focus, a11y_click_events_have_key_events -->
+					{@const tabControls = tab?.tabControls ?? []}
+					<!-- The pill a tab is seen as, pressed and dragged with the pointer; the keyboard
+					selects and moves tabs from the tab list. Presentational: Chrome would otherwise expose
+					it as an unnamed group around the tab's controls. -->
 					<div
-						role="tab"
-						id={tabElementId(index)}
 						class="{baseClass}__tab{isActive ? ` ${baseClass}__tab--active` : ''}"
-						aria-selected={isActive}
-						aria-controls={isActive ? panelId : undefined}
+						role="presentation"
 						draggable={!disableDrag}
 						ondragstart={(event) => startTabDrag(event, tabId)}
 						onclick={() => (config.activeTabIndex = index)}
 					>
-						<span class="{baseClass}__tab-title">{tab?.title}</span>
-						<div class="{baseClass}__tab-controls">
-							{#each tab?.tabControls ?? [] as control (control)}
+						<span
+							role="tab"
+							id={tabElementId(index)}
+							class="{baseClass}__tab-title"
+							aria-selected={isActive}
+							aria-controls={isActive ? panelId : undefined}>{tab?.title}</span
+						>
+						<div
+							class="{baseClass}__tab-controls"
+							role={tabControls.length > 0 ? 'group' : undefined}
+							aria-labelledby={tabControls.length > 0 ? tabElementId(index) : undefined}
+						>
+							{#each tabControls as control (control)}
 								<span class="{baseClass}__tab-control">
 									{@render control(tabId)}
 								</span>

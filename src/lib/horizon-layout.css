@@ -233,7 +233,6 @@
 	overflow-x: auto;
 	overflow-y: hidden;
 	scrollbar-width: none;
-	outline: none;
 }
 
 .horizon-layout-tabgroup__tab {
@@ -280,7 +279,8 @@
 	background: color-mix(in oklch, var(--hl-border) 18%, transparent);
 }
 
-.horizon-layout-tabgroup__tabs:focus-visible .horizon-layout-tabgroup__tab--active {
+/* The tab list, out of sight, has the focus: its ring is drawn on the active tab. */
+.horizon-layout-tabgroup__tablist:focus-visible ~ .horizon-layout-tabgroup__tab--active {
 	outline: 2px solid var(--hl-ring);
 	outline-offset: -2px;
 	border-radius: 4px;

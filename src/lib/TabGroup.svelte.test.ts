@@ -1,17 +1,20 @@
 /**
  * Component tests of tab groups, rendered in jsdom through `LayoutHarness` (src/test): the
  * WAI-ARIA tabs semantics of the tab list, selecting tabs with the pointer and the keyboard,
- * dragging a tab over a group, and what a touch drag of a tab needs.
+ * how the tabs' own controls are exposed and keep their keys, dragging a tab over a group, and
+ * what a touch drag of a tab needs.
  * @module
  */
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
-import { tick } from 'svelte';
+import { createRawSnippet, tick } from 'svelte';
+import { SvelteMap } from 'svelte/reactivity';
+import HorizonLayout from './HorizonLayout.svelte';
 import { describe, expect, it } from 'vitest';
 import { fakeDataTransfer } from '../test/drag.ts';
 import LayoutHarness from '../test/LayoutHarness.svelte';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { FloatingGroupConfig, LayoutConfig, SplitConfig } from './types.ts';
+import type { FloatingGroupConfig, Id, LayoutConfig, SplitConfig, View } from './types.ts';
 
 const dataTransfer = fakeDataTransfer;
 
@@ -84,8 +87,10 @@ describe('tab groups', () => {
 	it('mark the active tab selected, point the tab list at it and label the panel with it', () => {
 		renderGroup();
 		const tabList = screen.getByRole('tablist');
-		const tabs = within(tabList).getAllByRole('tab');
+		const tabs = screen.getAllByRole('tab');
 
+		// The tab list owns its tabs, laid out beside it with their controls.
+		expect(tabList.getAttribute('aria-owns')).toBe(tabs.map((tab) => tab.id).join(' '));
 		expect(tabs.map((tab) => tab.getAttribute('aria-selected'))).toEqual([
 			'false',
 			'true',
@@ -257,6 +262,111 @@ describe('tab groups', () => {
 	});
 });
 
+describe('tab controls', () => {
+	/**
+	 * Renders views a and b, each with a close button among its tab controls, and c without
+	 * controls, as `config`.
+	 */
+	function renderWithControls(config: LayoutConfig) {
+		const body = createRawSnippet(() => ({ render: () => '<p>Body</p>' }));
+		const closeButton = createRawSnippet((id: () => Id) => ({
+			render: () => `<button>Close ${id()}</button>`
+		}));
+		const view = (id: Id, controls: boolean): View => ({
+			title: `Title of ${id}`,
+			snippet: body,
+			tabControls: controls ? [closeButton] : []
+		});
+		render(HorizonLayout, {
+			props: {
+				config,
+				views: new SvelteMap([
+					['a', view('a', true)],
+					['b', view('b', true)],
+					['c', view('c', false)]
+				])
+			}
+		});
+	}
+
+	it('are named buttons, grouped under their tab’s title, outside the tab and the tab list', () => {
+		renderWithControls({ root: { tabs: ['a', 'b', 'c'], activeTabIndex: 0 } });
+
+		for (const id of ['a', 'b']) {
+			const group = screen.getByRole('group', { name: `Title of ${id}` });
+			const button = within(group).getByRole('button', { name: `Close ${id}` });
+			expect(button.closest('[role="tab"], [role="tablist"]')).toBeNull();
+		}
+		// A tab is named by its title only, and so is the panel it labels.
+		expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
+			'Title of a',
+			'Title of b',
+			'Title of c'
+		]);
+		expect(screen.getByRole('tabpanel', { name: 'Title of a' })).toBeTruthy();
+		// No group for a tab without controls.
+		expect(screen.queryByRole('group', { name: 'Title of c' })).toBeNull();
+		// The strip, which scrolls when the tabs overflow, holds the tab list: the keyboard reaches
+		// it even when no tab has a control.
+		expect(screen.getByRole('tablist').parentElement!.classList).toContain(
+			'horizon-layout-tabgroup__tabs'
+		);
+	});
+
+	it('are laid out the same in a floating group', () => {
+		renderWithControls({
+			floating: [{ tabs: ['a'], activeTabIndex: 0, rect: { x: 0, y: 0, width: 300, height: 200 } }]
+		});
+		const frame = screen.getByRole('dialog');
+		const group = within(frame).getByRole('group', { name: 'Title of a' });
+		expect(within(group).getByRole('button', { name: 'Close a' })).toBeTruthy();
+		expect(within(frame).getByRole('tablist').getAttribute('aria-owns')).toBe(
+			within(frame).getByRole('tab').id
+		);
+	});
+
+	it('give the tab list a press on the strip, outside any tab', async () => {
+		renderWithControls({ root: { tabs: ['a', 'b'], activeTabIndex: 0 } });
+		const strip = document.querySelector<HTMLElement>('.horizon-layout-tabgroup__tabs')!;
+
+		await fireEvent.click(strip);
+		expect(document.activeElement).toBe(screen.getByRole('tablist'));
+	});
+
+	it('leave the focus in a control pressed, and give the tab list a press on a tab', async () => {
+		renderWithControls({ root: { tabs: ['a', 'b'], activeTabIndex: 0 } });
+		const button = screen.getByRole('button', { name: 'Close b' });
+		button.focus();
+
+		await fireEvent.click(button);
+		expect(document.activeElement).toBe(button);
+
+		await fireEvent.click(screen.getByRole('tab', { name: 'Title of b' }));
+		expect(document.activeElement).toBe(screen.getByRole('tablist'));
+		expect(screen.getByRole('tab', { name: 'Title of b' }).getAttribute('aria-selected')).toBe(
+			'true'
+		);
+	});
+
+	it('keep the keys pressed in them, which don’t reach the tab list', async () => {
+		renderWithControls({ root: { tabs: ['a', 'b'], activeTabIndex: 0 } });
+		const button = screen.getByRole('button', { name: 'Close b' });
+		button.focus();
+
+		await fireEvent.keyDown(button, { key: 'ArrowRight' });
+		await fireEvent.keyDown(button, { key: 'Escape' });
+		expect(screen.getByRole('tab', { name: 'Title of a' }).getAttribute('aria-selected')).toBe(
+			'true'
+		);
+		expect(document.activeElement).toBe(button);
+
+		await fireEvent.keyDown(screen.getByRole('tablist'), { key: 'ArrowRight' });
+		expect(screen.getByRole('tab', { name: 'Title of b' }).getAttribute('aria-selected')).toBe(
+			'true'
+		);
+	});
+});
+
 describe('touch drags of tabs', () => {
 	// Read from disk: vitest hands CSS imports to the tests empty.
 	const defaultTheme = readFileSync(join(import.meta.dirname, 'horizon-layout.css'), 'utf8');
@@ -271,7 +381,7 @@ describe('touch drags of tabs', () => {
 	it('have the tabs draggable, a long press lifting them', () => {
 		renderGroup();
 		for (const tab of screen.getAllByRole('tab'))
-			expect(tab.getAttribute('draggable')).toBe('true');
+			expect(tab.closest('[draggable]')!.getAttribute('draggable')).toBe('true');
 	});
 
 	it('are off with disableDragAndDrop', () => {
@@ -283,14 +393,14 @@ describe('touch drags of tabs', () => {
 			}
 		});
 		for (const tab of screen.getAllByRole('tab'))
-			expect(tab.getAttribute('draggable')).toBe('false');
+			expect(tab.closest('[draggable]')!.getAttribute('draggable')).toBe('false');
 	});
 
 	it('leave a docked tab bar to the browser’s own touch handling', () => {
 		renderGroup();
-		const tabList = screen.getByRole('tablist');
-		expect(tabList.style.touchAction).toBe('');
-		expect(tabList.parentElement!.style.touchAction).toBe('');
+		const tabs = document.querySelector<HTMLElement>('.horizon-layout-tabgroup__tabs')!;
+		expect(tabs.style.touchAction).toBe('');
+		expect(tabs.parentElement!.style.touchAction).toBe('');
 	});
 
 	it('keep a tab from being selected as text or panned, in every engine, in the default theme', () => {
