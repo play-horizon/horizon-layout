@@ -4,10 +4,11 @@
  * @module
  */
 import { render, screen } from '@testing-library/svelte';
+import { flushSync } from 'svelte';
 import { beforeEach, describe, expect, it } from 'vitest';
 import LayoutHarness from '../test/LayoutHarness.svelte';
 import { mounts } from '../test/ViewBody.svelte';
-import type { LayoutConfig } from './types.ts';
+import type { LayoutConfig, SplitConfig, TabGroupConfig } from './types.ts';
 
 function twoPanes(): LayoutConfig {
 	return {
@@ -57,5 +58,25 @@ describe('HorizonLayout', () => {
 	it('names the resize handles with the translations', () => {
 		renderLayout(twoPanes());
 		expect(screen.getByRole('slider').getAttribute('aria-label')).toBe('Resize pane 1');
+	});
+
+	it('keeps the panels whose place is unchanged mounted when the config changes outside', () => {
+		const state = renderLayout(twoPanes());
+		const second = (state.config.root as SplitConfig).views[1] as TabGroupConfig;
+		second.tabs.push('d');
+		second.activeTabIndex = 1;
+		flushSync();
+		expect(screen.getByText('Body of d')).toBeTruthy();
+		expect(mounts.get('a')).toBe(1);
+	});
+
+	it('keeps the panels mounted when the config is replaced by an equal-shaped one', () => {
+		const state = renderLayout(twoPanes());
+		const next = twoPanes();
+		(next.root as SplitConfig).splitPoints = [0.3];
+		state.config = next;
+		flushSync();
+		expect(mounts.get('a')).toBe(1);
+		expect(mounts.get('c')).toBe(1);
 	});
 });

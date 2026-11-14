@@ -25,6 +25,7 @@
 	import { DEFAULT_MIN_WIDTH_RATIO, DEFAULT_MIN_HEIGHT_RATIO } from './internal-utils.ts';
 	import { dropTargetType, roundSplitPoint } from './internal-utils.ts';
 	import type { DropTarget } from './internal-types.ts';
+	import { reconcileConfig } from './reconcile.ts';
 	import { englishTranslations } from './translations.ts';
 
 	interface Popout {
@@ -332,7 +333,15 @@
 			dragData = null;
 		}
 
-		internalConfig = createInternalConfig(external);
+		if (!isValidConfig(external)) {
+			internalConfig = null;
+			return;
+		}
+		// Applied in place, so the panels whose place is unchanged stay mounted.
+		untrack(() => {
+			if (internalConfig) reconcileConfig(internalConfig, external);
+			else internalConfig = cloneConfig(external);
+		});
 	});
 
 	// Propagate internalConfig changes → external config binding.
@@ -346,32 +355,31 @@
 		}
 	});
 
-	// Validates and deep-clones an external LayoutConfig.
-	// Returns null and logs an error if any constraint is violated.
-	function createInternalConfig(input: LayoutConfig): LayoutConfig | null {
+	// Whether an external LayoutConfig can be shown; logs the first violated constraint when not.
+	function isValidConfig(input: LayoutConfig): boolean {
 		if (!skipValidation) {
 			if (minWidthRatio < 0 || minWidthRatio > 0.5) {
 				console.error('HorizonLayout: minWidthRatio must be between 0 and 0.5');
-				return null;
+				return false;
 			}
 			if (minHeightRatio < 0 || minHeightRatio > 0.5) {
 				console.error('HorizonLayout: minHeightRatio must be between 0 and 0.5');
-				return null;
+				return false;
 			}
 			if (maxDepth < 1) {
 				console.error('HorizonLayout: maxDepth must be at least 1');
-				return null;
+				return false;
 			}
 
 			try {
 				validateConfig(input, views, { minWidthRatio, minHeightRatio });
 			} catch (e) {
 				console.error(`HorizonLayout: ${(e as Error).message}`);
-				return null;
+				return false;
 			}
 		}
 
-		return cloneConfig(input);
+		return true;
 	}
 
 	function moveSplit(split: SplitConfig, index: number, ratio: number) {
@@ -629,7 +637,7 @@
 				}
 			}
 		} else {
-			internalConfig = configBeforeDrag;
+			reconcileConfig(internalConfig!, configBeforeDrag);
 		}
 	}
 
