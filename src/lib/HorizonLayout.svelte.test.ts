@@ -8,6 +8,7 @@ import { fireEvent, render, screen } from '@testing-library/svelte';
 import { createRawSnippet, flushSync, tick } from 'svelte';
 import { SvelteMap } from 'svelte/reactivity';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { fakeDataTransfer } from '../test/drag.ts';
 import LayoutHarness from '../test/LayoutHarness.svelte';
 import HorizonLayout from './HorizonLayout.svelte';
 import { mounts } from '../test/ViewBody.svelte';
@@ -463,5 +464,89 @@ describe('splitting a pane', () => {
 
 		// (0.1 + 0.2) / 2 is 0.15000000000000002 in floating point.
 		expect((props.config.root as SplitConfig).splitPoints).toEqual([0.1, 0.15, 0.2]);
+	});
+});
+
+describe('refused splits and docks', () => {
+	/** Renders `initial` with the given limits, and returns its state. */
+	function renderLimited(initial: LayoutConfig, limits: { maxDepth?: number }) {
+		const props = $state({ config: initial });
+		const { container } = render(LayoutHarness, {
+			props: {
+				get config() {
+					return props.config;
+				},
+				set config(value) {
+					props.config = value;
+				},
+				ids: ['a', 'b', 'c', 'd', 'e'],
+				...limits
+			}
+		});
+		return { props, container };
+	}
+
+	const rect = { x: 0, y: 0, width: 300, height: 200 };
+
+	it('leave a pane too narrow to halve as it is', async () => {
+		const narrow: LayoutConfig = {
+			root: {
+				direction: 'horizontal',
+				views: [
+					{ tabs: ['a', 'b'], activeTabIndex: 0 },
+					{ tabs: ['c'], activeTabIndex: 0 }
+				],
+				splitPoints: [0.15]
+			}
+		};
+		const { props } = renderLimited(structuredClone(narrow), {});
+
+		await pressOnTabList(0, 'ArrowRight', { altKey: true });
+
+		expect(props.config).toEqual(narrow);
+	});
+
+	it('stop at maxDepth, from the keyboard and for a dropped tab', async () => {
+		const flat: LayoutConfig = { root: { tabs: ['a', 'b'], activeTabIndex: 0 } };
+		const { props, container } = renderLimited(structuredClone(flat), { maxDepth: 1 });
+
+		await pressOnTabList(0, 'ArrowDown', { altKey: true });
+		expect(props.config).toEqual(flat);
+
+		const transfer = fakeDataTransfer();
+		await fireEvent.dragStart(screen.getByRole('tab', { name: 'Title of b' }), {
+			dataTransfer: transfer
+		});
+		await new Promise((resolve) => requestAnimationFrame(resolve));
+		flushSync();
+		const zone = container.querySelector('.horizon-layout-tabgroup__drop-zone--bottom')!;
+		expect(await fireEvent.dragOver(zone, { dataTransfer: transfer })).toBe(true);
+		await fireEvent.dragEnd(window);
+		expect(props.config).toEqual(flat);
+	});
+
+	it('keep a floating tab floating when docking it at an edge has no room', async () => {
+		const tooDeep: LayoutConfig = {
+			root: {
+				direction: 'horizontal',
+				views: [
+					{ tabs: ['a'], activeTabIndex: 0 },
+					{ tabs: ['b'], activeTabIndex: 0 }
+				],
+				splitPoints: [0.5]
+			},
+			floating: [{ tabs: ['d'], activeTabIndex: 0, rect }]
+		};
+		const { props } = renderLimited(structuredClone(tooDeep), { maxDepth: 2 });
+
+		await fireEvent.keyDown(screen.getAllByRole('tablist')[2]!, { key: 'ArrowDown', altKey: true });
+		expect(props.config).toEqual(tooDeep);
+
+		const tooNarrow = structuredClone(tooDeep);
+		(tooNarrow.root as SplitConfig).splitPoints = [0.15];
+		props.config = structuredClone(tooNarrow);
+		flushSync();
+		await fireEvent.keyDown(screen.getAllByRole('tablist')[2]!, { key: 'ArrowLeft', altKey: true });
+		expect(props.config).toEqual(tooNarrow);
 	});
 });
