@@ -13,9 +13,9 @@ keyboard controls, and an optional ratio label. Internal to HorizonLayout, rende
 		LayoutTranslations,
 		TabGroupConfig
 	} from './types.ts';
-	import { getModifier } from './internal-utils.ts';
+	import { getModifier, roundSplitPoint } from './internal-utils.ts';
 	import HorizonLayoutNode from './LayoutNode.svelte';
-	import { type Snippet } from 'svelte';
+	import { onDestroy, type Snippet } from 'svelte';
 	import type { DropTarget } from './internal-types.ts';
 
 	let {
@@ -83,39 +83,45 @@ keyboard controls, and an optional ratio label. Internal to HorizonLayout, rende
 		})
 	);
 
+	// Ends the resize in progress: one at a time, a new press ending the one before, so a gesture
+	// whose end was missed can't linger.
+	let endResize: (() => void) | null = null;
+	onDestroy(() => endResize?.());
+
 	function startResize(event: PointerEvent, index: number) {
+		if (disableResizeSplits || event.button !== 0) return;
 		event.preventDefault();
 		event.stopPropagation();
-		if (disableResizeSplits) return;
+		endResize?.();
 
-		const target = event.currentTarget as HTMLElement;
-		target.setPointerCapture(event.pointerId);
-		activeResizer = index;
-
+		const handle = event.currentTarget as HTMLElement;
+		const { pointerId } = event;
 		const rect = splitContainer!.getBoundingClientRect();
 
-		function move(event: PointerEvent) {
-			const ratio = isHorizontal
-				? (event.clientX - rect.left) / rect.width
-				: (event.clientY - rect.top) / rect.height;
+		const move = (moveEvent: PointerEvent) => {
+			if (moveEvent.pointerId !== pointerId) return;
+			const size = isHorizontal ? rect.width : rect.height;
+			if (size <= 0) return;
+			const offset = isHorizontal ? moveEvent.clientX - rect.left : moveEvent.clientY - rect.top;
 			const { min, max } = posConstraints[index]!;
-			const clamped = Number(Math.min(Math.max(ratio, min), max).toFixed(4));
+			const clamped = roundSplitPoint(Math.min(Math.max(offset / size, min), max));
 			if (clamped !== config.splitPoints[index]) config.splitPoints[index] = clamped;
-		}
-
-		function stop(event: PointerEvent) {
+		};
+		// Fired after pointerup and pointercancel, and whenever else the handle loses the capture.
+		const end = (endEvent: PointerEvent) => {
+			if (endEvent.pointerId === pointerId) endResize?.();
+		};
+		handle.addEventListener('pointermove', move);
+		handle.addEventListener('lostpointercapture', end);
+		endResize = () => {
+			handle.removeEventListener('pointermove', move);
+			handle.removeEventListener('lostpointercapture', end);
+			if (handle.hasPointerCapture(pointerId)) handle.releasePointerCapture(pointerId);
 			activeResizer = null;
-			if (target.hasPointerCapture(event.pointerId)) {
-				target.releasePointerCapture(event.pointerId);
-			}
-			target.removeEventListener('pointermove', move);
-			target.removeEventListener('pointerup', stop);
-			target.removeEventListener('pointercancel', stop);
-		}
-
-		target.addEventListener('pointermove', move);
-		target.addEventListener('pointerup', stop);
-		target.addEventListener('pointercancel', stop);
+			endResize = null;
+		};
+		handle.setPointerCapture(pointerId);
+		activeResizer = index;
 	}
 
 	function handleKeyDown(event: KeyboardEvent, index: number) {
