@@ -3,8 +3,6 @@
 	import type {
 		FloatingRect,
 		Id,
-		KeyboardControl,
-		KeyboardControls,
 		KeyboardShortcut,
 		LayoutConfig,
 		Modifier,
@@ -20,15 +18,13 @@
 	import {
 		buildNodeParentMap,
 		cloneConfig,
-		findTabGroup,
 		floatView,
 		nodeConfigType,
-		parseLayoutConfig,
 		removeView,
 		simplifyTabGroup
 	} from '#lib/utils.js';
 	import { themes, themeClassMap } from './themes.js';
-	import DemoPage, { type PageKind as DemoPageKind } from './DemoPage.svelte';
+	import DemoPage from './DemoPage.svelte';
 	import NestedDemo from './NestedDemo.svelte';
 	import KeyboardControlsEditor from './KeyboardControls.svelte';
 	import type { ActionId } from './KeyboardControls.svelte';
@@ -40,76 +36,22 @@
 	import FloatIcon from '~icons/mingcute/miniplayer-line';
 	import MaximizeIcon from '~icons/mingcute/fullscreen-line';
 	import PopoutIcon from '~icons/mingcute/external-link-line';
-
-	// ------------------------------------------------------------------ pages
-
-	type PageKind = DemoPageKind | 'nested';
-	const pageKinds: PageKind[] = [
-		'intro',
-		'usage',
-		'files',
-		'config',
-		'floating',
-		'blank',
-		'nested'
-	];
-
-	interface DemoPageDef {
-		id: Id;
-		title: string;
-		kind: PageKind;
-		persistent?: boolean;
-	}
-
-	function defaultPages(): DemoPageDef[] {
-		return [
-			{ id: 'intro', title: 'Getting started', kind: 'intro', persistent: true },
-			{ id: 'usage', title: 'Usage', kind: 'usage' },
-			{ id: 'files', title: 'Files', kind: 'files' },
-			{ id: 'config', title: 'Config', kind: 'config' },
-			{ id: 'floating', title: 'Floating panel', kind: 'floating' },
-			{ id: 'nested', title: 'Nested layout', kind: 'nested', persistent: true }
-		];
-	}
+	import { defaultConfig, defaultPages, highestPageNumber, type DemoPageDef } from './pages.js';
+	import { lastTabGroup } from './layout-tree.js';
+	import {
+		buildKeyboardControls,
+		defaultBindings,
+		isDefaultBindings,
+		type DemoLayout
+	} from './keyboard-actions.js';
+	import { clearDemoState, loadDemoState, saveDemoState, type DemoState } from './persistence.js';
 
 	let pages = $state<DemoPageDef[]>(defaultPages());
 	let nextPageNumber = 1;
 
-	// ----------------------------------------------------------------- layout
-
-	function defaultConfig(): LayoutConfig {
-		return {
-			root: {
-				direction: 'horizontal',
-				views: [
-					{ tabs: ['intro', 'usage'], activeTabIndex: 0 },
-					{
-						direction: 'vertical',
-						views: [
-							{ tabs: ['files'], activeTabIndex: 0 },
-							{ tabs: ['config'], activeTabIndex: 0 }
-						],
-						splitPoints: [0.4]
-					},
-					{ tabs: ['nested'], activeTabIndex: 0 }
-				],
-				splitPoints: [0.3, 0.55]
-			},
-			floating: [
-				{
-					tabs: ['floating'],
-					activeTabIndex: 0,
-					rect: { x: 320, y: 140, width: 380, height: 260 }
-				}
-			]
-		};
-	}
-
 	let config: LayoutConfig = $state(defaultConfig());
 
 	let mainTheme = $state(themes[0]!.id);
-
-	// ------------------------------------------------------------- prop knobs
 
 	let showSplitRatio = $state(true);
 	let disableResizeSplits = $state(false);
@@ -126,8 +68,6 @@
 
 	let formatRatio = $derived(ratioFormats[ratioFormat].format);
 	let formatRatioForAria = $derived(ratioFormats[ratioFormat].aria);
-
-	// ---------------------------------------------------------- view snippets
 
 	function pageSnippet(page: DemoPageDef) {
 		return createRawSnippet(() => ({
@@ -160,16 +100,6 @@
 		return map;
 	});
 
-	// --------------------------------------------------------- layout helpers
-
-	function lastTabGroup(node: NodeConfig): TabGroupConfig {
-		if (nodeConfigType(node) === 'tabGroup') return node as TabGroupConfig;
-		const vs = (node as SplitConfig).views;
-		return lastTabGroup(vs[vs.length - 1]!);
-	}
-
-	// ---------------------------------------------------------- sidebar pages
-
 	function addPage() {
 		const id = `page-${nextPageNumber++}` as Id;
 		pages = [...pages, { id, title: `Page ${nextPageNumber - 1}`, kind: 'blank' }];
@@ -201,8 +131,6 @@
 		nextPageNumber = 1;
 		popoutsOriginalPositions = [];
 	}
-
-	// ----------------------------------------------------------------- popout
 
 	// Where each popped-out view came from: its path in the docked tree, or its floating rect.
 	let popoutsOriginalPositions: { viewId: Id; position: number[]; rect?: FloatingRect }[] = [];
@@ -299,33 +227,13 @@
 		config = configCopy;
 	}
 
-	// ------------------------------------------------------ keyboard controls
-
-	const defaultBindings: Record<ActionId, KeyboardShortcut> = {
-		deselect: { key: 'Escape' },
-		cycleNext: { key: 'ArrowRight' },
-		cyclePrev: { key: 'ArrowLeft' },
-		moveTabNext: { modifier: 'shift', key: 'ArrowRight' },
-		moveTabPrev: { modifier: 'shift', key: 'ArrowLeft' },
-		splitRight: { modifier: 'alt', key: 'ArrowRight' },
-		splitLeft: { modifier: 'alt', key: 'ArrowLeft' },
-		splitUp: { modifier: 'alt', key: 'ArrowUp' },
-		splitDown: { modifier: 'alt', key: 'ArrowDown' },
-		moveNextPane: { modifier: 'ctrl', key: 'ArrowRight' },
-		movePrevPane: { modifier: 'ctrl', key: 'ArrowLeft' },
-		resizeBigger: { key: 'ArrowRight' },
-		resizeSmaller: { key: 'ArrowLeft' },
-		resizeMin: { key: 'Home' },
-		resizeMax: { key: 'End' }
-	};
-
 	let kbBindings = $state<Record<ActionId, KeyboardShortcut>>(structuredClone(defaultBindings));
 
 	function onBindingChanged(action: ActionId, binding: { modifier: string; key: string }) {
 		const key = binding.key.trim();
 		kbBindings[action] = {
 			modifier: (binding.modifier || undefined) as Modifier | undefined,
-			key: key || defaultBindings[action]!.key
+			key: key || defaultBindings[action].key
 		};
 	}
 
@@ -333,273 +241,31 @@
 		kbBindings = structuredClone(defaultBindings);
 	}
 
-	function perpendicular(key: string): string | null {
-		if (key === 'ArrowRight') return 'ArrowDown';
-		if (key === 'ArrowDown') return 'ArrowRight';
-		if (key === 'ArrowLeft') return 'ArrowUp';
-		if (key === 'ArrowUp') return 'ArrowLeft';
-		return null;
-	}
-
-	// Actions that only touch the config object they receive.
-	function moveTabInGroup(tg: TabGroupConfig, dir: 1 | -1) {
-		const count = tg.tabs.length;
-		if (count < 2) return;
-		const target = (tg.activeTabIndex + dir + count) % count;
-		const [tab] = tg.tabs.splice(tg.activeTabIndex, 1);
-		if (!tab) return;
-		tg.tabs.splice(target, 0, tab);
-		tg.activeTabIndex = target;
-	}
-
-	// Actions that need the full tree: locate the matching external tab group, docked or
-	// floating, via the active view id (view ids are unique across the layout).
-	function findExternalTabGroup(tg: TabGroupConfig): TabGroupConfig | null {
-		const activeId = tg.tabs[tg.activeTabIndex];
-		return (activeId && findTabGroup(config, activeId)) || null;
-	}
-
-	function isFloatingGroup(group: TabGroupConfig): boolean {
-		return config.floating?.some((floating) => floating === group) ?? false;
-	}
-
-	// Docks the active tab of a floating group: into the last or first docked group, or (`split`)
-	// as a new pane around the whole docked layout. The library's own controls also respect
-	// the minimum sizes and maxDepth; this demo keeps it short.
-	function demoDock(
-		group: TabGroupConfig,
-		direction: 'left' | 'right' | 'up' | 'down',
-		split: boolean
-	) {
-		const id = group.tabs[group.activeTabIndex]!;
-		const isFirst = direction === 'left' || direction === 'up';
-		removeView(config, id);
-		const pane: TabGroupConfig = { tabs: [id], activeTabIndex: 0 };
-		if (!config.root) {
-			config.root = pane;
-		} else if (split) {
-			config.root = {
-				direction: direction === 'left' || direction === 'right' ? 'horizontal' : 'vertical',
-				views: isFirst ? [pane, config.root] : [config.root, pane],
-				splitPoints: [0.5]
-			};
-		} else {
-			const target = isFirst ? firstTabGroupOf(config.root) : lastTabGroup(config.root);
-			target.tabs.push(id);
-			target.activeTabIndex = target.tabs.length - 1;
+	// What the demo's keyboard actions read when they run: the live config and options.
+	const layout: DemoLayout = {
+		get config() {
+			return config;
+		},
+		get minWidthRatio() {
+			return minWidthRatio;
+		},
+		get minHeightRatio() {
+			return minHeightRatio;
+		},
+		get maxDepth() {
+			return maxDepth;
 		}
-	}
-
-	function firstTabGroupOf(node: NodeConfig): TabGroupConfig {
-		if (nodeConfigType(node) === 'tabGroup') return node as TabGroupConfig;
-		return firstTabGroupOf((node as SplitConfig).views[0]!);
-	}
-
-	function paneMidpoint(entry: { parent: SplitConfig; index: number }): number {
-		return (
-			((entry.parent.splitPoints[entry.index - 1] ?? 0) +
-				(entry.parent.splitPoints[entry.index] ?? 1)) /
-			2
-		);
-	}
-
-	function canSplit(group: TabGroupConfig, splitDirection: 'horizontal' | 'vertical'): boolean {
-		if (!config.root) return false;
-		const map = buildNodeParentMap(config.root);
-		const minRatio = splitDirection === 'horizontal' ? minWidthRatio : minHeightRatio;
-		const entry = map.get(group);
-		if (entry?.parent.direction === splitDirection) {
-			return (
-				((entry.parent.splitPoints[entry.index] ?? 1) -
-					(entry.parent.splitPoints[entry.index - 1] ?? 0)) /
-					2 >=
-				minRatio
-			);
-		}
-		const depth = (node: NodeConfig, d = 1): number => {
-			const parent = map.get(node);
-			return parent ? depth(parent.parent, d + 1) : d;
-		};
-		return depth(group) + 1 <= maxDepth;
-	}
-
-	function demoSplit(tg: TabGroupConfig, direction: 'left' | 'right' | 'up' | 'down') {
-		const group = findExternalTabGroup(tg);
-		if (group && isFloatingGroup(group)) {
-			demoDock(group, direction, true);
-			return;
-		}
-		if (!group || group.tabs.length < 2 || !config.root) return;
-		const splitDirection =
-			direction === 'left' || direction === 'right' ? 'horizontal' : 'vertical';
-		if (!canSplit(group, splitDirection)) return;
-
-		const map = buildNodeParentMap(config.root);
-		const entry = map.get(group);
-		const activeId = group.tabs[group.activeTabIndex]!;
-		const oldActive = group.activeTabIndex;
-		const isFirst = direction === 'left' || direction === 'up';
-		const newGroup: TabGroupConfig = { tabs: [activeId], activeTabIndex: 0 };
-
-		group.tabs = group.tabs.filter((_, i) => i !== oldActive) as [Id, ...Id[]];
-		group.activeTabIndex = Math.min(oldActive, group.tabs.length - 1);
-
-		if (!entry || entry.parent.direction !== splitDirection) {
-			const split: SplitConfig = {
-				direction: splitDirection,
-				views: isFirst ? [newGroup, group] : [group, newGroup],
-				splitPoints: [0.5]
-			};
-			if (entry) entry.parent.views[entry.index] = split;
-			else config.root = split;
-		} else {
-			entry.parent.views.splice(entry.index + (isFirst ? 0 : 1), 0, newGroup);
-			entry.parent.splitPoints.splice(entry.index, 0, paneMidpoint(entry));
-		}
-	}
-
-	function demoMoveTabToClosest(tg: TabGroupConfig, direction: 'left' | 'right' | 'up' | 'down') {
-		const source = findExternalTabGroup(tg);
-		if (source && isFloatingGroup(source)) {
-			demoDock(source, direction, false);
-			return;
-		}
-		if (!source || !config.root) return;
-		const map = buildNodeParentMap(config.root);
-		const axis = direction === 'left' || direction === 'right' ? 'horizontal' : 'vertical';
-		const isLeftUp = direction === 'left' || direction === 'up';
-		const sourceTab = source.tabs[source.activeTabIndex]!;
-
-		const edge = (node: NodeConfig): TabGroupConfig => {
-			if (nodeConfigType(node) === 'tabGroup') return node as TabGroupConfig;
-			const split = node as SplitConfig;
-			return edge(split.views[isLeftUp ? split.views.length - 1 : 0]!);
-		};
-
-		const walk = (child: NodeConfig): void => {
-			const entry = map.get(child);
-			if (!entry) return;
-			if (entry.parent.direction !== axis) return walk(entry.parent);
-			const targetIndex = entry.index + (isLeftUp ? -1 : 1);
-			if (targetIndex < 0 || targetIndex >= entry.parent.views.length) return walk(entry.parent);
-
-			source.tabs.splice(source.activeTabIndex, 1);
-			source.activeTabIndex = Math.min(source.activeTabIndex, source.tabs.length - 1);
-			simplifyTabGroup(source, map, config);
-			const destination = edge(entry.parent.views[targetIndex]!);
-			destination.activeTabIndex = destination.tabs.length;
-			destination.tabs.push(sourceTab);
-		};
-
-		walk(source);
-	}
-
-	function demoMoveSplit(split: SplitConfig, index: number, ratio: number) {
-		const minRatio = split.direction === 'horizontal' ? minWidthRatio : minHeightRatio;
-		const min = (split.splitPoints[index - 1] ?? 0) + minRatio;
-		const max = (split.splitPoints[index + 1] ?? 1) - minRatio;
-		const clamped = Number(Math.min(Math.max(ratio, min), max).toFixed(4));
-		if (clamped !== split.splitPoints[index]) split.splitPoints[index] = clamped;
-	}
-
-	const tabGroupHandlers: Record<string, (tg: TabGroupConfig, event: KeyboardEvent) => void> = {
-		deselect: (_, event) => (event.currentTarget as HTMLElement).blur(),
-		cycleNext: (tg) => (tg.activeTabIndex = (tg.activeTabIndex + 1) % tg.tabs.length),
-		cyclePrev: (tg) =>
-			(tg.activeTabIndex = (tg.activeTabIndex + tg.tabs.length - 1) % tg.tabs.length),
-		moveTabNext: (tg) => moveTabInGroup(tg, 1),
-		moveTabPrev: (tg) => moveTabInGroup(tg, -1),
-		splitRight: (tg) => demoSplit(tg, 'right'),
-		splitLeft: (tg) => demoSplit(tg, 'left'),
-		splitUp: (tg) => demoSplit(tg, 'up'),
-		splitDown: (tg) => demoSplit(tg, 'down'),
-		moveNextPane: (tg) => demoMoveTabToClosest(tg, 'right'),
-		movePrevPane: (tg) => demoMoveTabToClosest(tg, 'left')
 	};
-
-	const splitHandlers: Record<
-		string,
-		(data: { config: SplitConfig; index: number }, event: KeyboardEvent) => void
-	> = {
-		deselect: (_, event) => (event.currentTarget as HTMLElement).blur(),
-		resizeBigger: (data) =>
-			demoMoveSplit(data.config, data.index, data.config.splitPoints[data.index]! + 0.01),
-		resizeSmaller: (data) =>
-			demoMoveSplit(data.config, data.index, data.config.splitPoints[data.index]! - 0.01),
-		resizeMin: (data) => demoMoveSplit(data.config, data.index, 0),
-		resizeMax: (data) => demoMoveSplit(data.config, data.index, 1)
-	};
-
-	function buildControls(bindings: Record<ActionId, KeyboardShortcut>): KeyboardControls {
-		const tabGroup: KeyboardControl<TabGroupConfig>[] = [];
-		const pushTab = (action: ActionId, extraKeys: string[] = []) => {
-			const binding = bindings[action];
-			if (!binding || !tabGroupHandlers[action]) return;
-			const modifier = binding.modifier as Modifier | undefined;
-			tabGroup.push({
-				shortcuts: [binding, ...extraKeys.map((key) => ({ modifier, key }))],
-				action: tabGroupHandlers[action]!
-			});
-		};
-		pushTab('deselect');
-		pushTab('cycleNext', ['ArrowDown']);
-		pushTab('cyclePrev', ['ArrowUp']);
-		pushTab('moveTabNext', ['ArrowDown']);
-		pushTab('moveTabPrev', ['ArrowUp']);
-		pushTab('splitRight');
-		pushTab('splitLeft');
-		pushTab('splitUp');
-		pushTab('splitDown');
-		pushTab('moveNextPane');
-		pushTab('movePrevPane');
-
-		const splits: KeyboardControl<{ config: SplitConfig; index: number }>[] = [];
-		const pushSplit = (action: ActionId, extraKeys: string[] = []) => {
-			const binding = bindings[action];
-			if (!binding || !splitHandlers[action]) return;
-			const modifier = binding.modifier as Modifier | undefined;
-			splits.push({
-				shortcuts: [binding, ...extraKeys.map((key) => ({ modifier, key }))],
-				action: splitHandlers[action]!
-			});
-		};
-		pushSplit('deselect');
-		pushSplit(
-			'resizeSmaller',
-			perpendicular(bindings.resizeSmaller!.key)
-				? [perpendicular(bindings.resizeSmaller!.key)!]
-				: []
-		);
-		pushSplit(
-			'resizeBigger',
-			perpendicular(bindings.resizeBigger!.key) ? [perpendicular(bindings.resizeBigger!.key)!] : []
-		);
-		pushSplit('resizeMin');
-		pushSplit('resizeMax');
-
-		return { splitControls: splits, tabGroupControls: tabGroup };
-	}
 
 	// The library's built-in controls until a binding is changed; this demo's own after that.
 	let keyboardControls = $derived(
-		(Object.keys(defaultBindings) as ActionId[]).every(
-			(action) =>
-				kbBindings[action].key === defaultBindings[action].key &&
-				kbBindings[action].modifier === defaultBindings[action].modifier
-		)
-			? {}
-			: buildControls(kbBindings)
+		isDefaultBindings(kbBindings) ? {} : buildKeyboardControls(kbBindings, layout)
 	);
-
-	// ------------------------------------------------------------ persistence
-
-	const STORAGE_KEY = 'horizon-layout-demo-state';
 
 	let saveHandle: ReturnType<typeof setTimeout> | null = null;
 
-	function currentState() {
+	function currentState(): DemoState {
 		return {
-			persist: persistLayout,
 			config: cloneConfig(config),
 			pages: $state.snapshot(pages),
 			theme: mainTheme,
@@ -615,69 +281,20 @@
 		};
 	}
 
-	/** Highest `page-N` number already in use, or 0 when none exist. */
-	function highestPageNumber(pageList: { id: string }[]): number {
-		let highest = 0;
-		for (const page of pageList) {
-			const match = /^page-(\d+)$/.exec(page.id);
-			const digits = match?.[1];
-			if (digits === undefined) continue;
-			const value = Number(digits);
-			if (value > highest) highest = value;
-		}
-		return highest;
-	}
-
-	function applyPersisted(state: {
-		config?: unknown;
-		pages?: unknown;
-		theme?: unknown;
-		showSplitRatio?: unknown;
-		disableResizeSplits?: unknown;
-		disableDragAndDrop?: unknown;
-		hideTabBar?: unknown;
-		skipValidation?: unknown;
-		minWidthRatio?: unknown;
-		minHeightRatio?: unknown;
-		maxDepth?: unknown;
-		ratioFormat?: unknown;
-	}): boolean {
-		try {
-			const parsed = parseLayoutConfig(state.config);
-			const restoredPages = (Array.isArray(state.pages) ? state.pages : [])
-				.filter(
-					(p: { id?: unknown; title?: unknown; kind?: unknown }) =>
-						typeof p?.id === 'string' && p.id !== '' && typeof p?.title === 'string'
-				)
-				.map((p: { id: string; title: string; kind?: string; persistent?: boolean }) => ({
-					id: p.id as Id,
-					title: p.title,
-					kind: pageKinds.includes(p.kind as PageKind) ? (p.kind as PageKind) : 'blank',
-					persistent: !!p.persistent
-				}));
-			if (!restoredPages.some((p: DemoPageDef) => p.kind === 'nested')) return false;
-			config = parsed;
-			pages = restoredPages;
-			nextPageNumber = highestPageNumber(restoredPages) + 1;
-			mainTheme = themes.some((t) => t.id === state.theme)
-				? (state.theme as string)
-				: themes[0]!.id;
-			showSplitRatio = state.showSplitRatio === undefined ? true : !!state.showSplitRatio;
-			disableResizeSplits = !!state.disableResizeSplits;
-			disableDragAndDrop = !!state.disableDragAndDrop;
-			hideTabBar = !!state.hideTabBar;
-			skipValidation = !!state.skipValidation;
-			minWidthRatio = typeof state.minWidthRatio === 'number' ? state.minWidthRatio : 0.1;
-			minHeightRatio = typeof state.minHeightRatio === 'number' ? state.minHeightRatio : 0.2;
-			maxDepth = typeof state.maxDepth === 'number' ? state.maxDepth : 6;
-			ratioFormat =
-				typeof state.ratioFormat === 'string' && state.ratioFormat in ratioFormats
-					? (state.ratioFormat as typeof ratioFormat)
-					: 'percent';
-			return true;
-		} catch {
-			return false;
-		}
+	function applyState(state: DemoState) {
+		config = state.config;
+		pages = state.pages;
+		nextPageNumber = highestPageNumber(state.pages) + 1;
+		mainTheme = state.theme;
+		showSplitRatio = state.showSplitRatio;
+		disableResizeSplits = state.disableResizeSplits;
+		disableDragAndDrop = state.disableDragAndDrop;
+		hideTabBar = state.hideTabBar;
+		skipValidation = state.skipValidation;
+		minWidthRatio = state.minWidthRatio;
+		minHeightRatio = state.minHeightRatio;
+		maxDepth = state.maxDepth;
+		ratioFormat = state.ratioFormat;
 	}
 
 	function setPersist(enabled: boolean) {
@@ -687,35 +304,26 @@
 				clearTimeout(saveHandle);
 				saveHandle = null;
 			}
-			localStorage.removeItem(STORAGE_KEY);
+			clearDemoState();
 		}
 	}
 
 	// Auto-save while persistence is enabled (debounced).
 	$effect(() => {
 		if (!persistLayout) return;
-		const json = JSON.stringify(currentState());
+		const state = currentState();
 		if (saveHandle !== null) clearTimeout(saveHandle);
 		saveHandle = setTimeout(() => {
 			saveHandle = null;
-			if (persistLayout) localStorage.setItem(STORAGE_KEY, json);
+			if (persistLayout) saveDemoState(state);
 		}, 250);
 	});
 
 	// Restore the persisted state once at startup, if the switch was left on.
 	{
-		let persisted: Record<string, unknown> | null = null;
-		try {
-			const raw = localStorage.getItem(STORAGE_KEY);
-			if (raw) {
-				const parsed = JSON.parse(raw);
-				if (parsed?.persist === true) persisted = parsed;
-			}
-		} catch {
-			// ignore malformed storage
-		}
+		const persisted = loadDemoState();
 		persistLayout = persisted !== null;
-		if (persisted) applyPersisted(persisted);
+		if (persisted) applyState(persisted);
 	}
 </script>
 
@@ -878,8 +486,6 @@
 		color: var(--hl-foreground);
 	}
 
-	/* ------------------------------------------------------------ sidebar */
-
 	.sidebar {
 		width: 270px;
 		flex-shrink: 0;
@@ -1040,8 +646,6 @@
 		gap: 0.45rem;
 		font-size: 0.75rem;
 	}
-
-	/* ------------------------------------------------------------- layout */
 
 	.layout {
 		position: relative;
