@@ -63,6 +63,22 @@ describe('demo page', () => {
 		expect(theme.value).toBe('light');
 	});
 
+	it('resets the constraints with the layout, which they could make invalid', async () => {
+		render(Page);
+		// The sidebar's fields come first; the nested layout's page has fields of its own.
+		const minWidth = screen.getAllByLabelText('Min width ratio')[0] as HTMLInputElement;
+		const maxDepth = screen.getAllByLabelText('Max split depth')[0] as HTMLInputElement;
+		await fireEvent.change(minWidth, { target: { value: '0.3' } });
+		await fireEvent.change(maxDepth, { target: { value: '9' } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Reset layout' }));
+		flushSync();
+
+		expect(minWidth.value).toBe('0.1');
+		expect(maxDepth.value).toBe('6');
+		expect(screen.getAllByRole('tablist').length).toBeGreaterThan(0);
+	});
+
 	it('restores the saved state once mounted', async () => {
 		localStorage.setItem(
 			'horizon-layout-demo-state',

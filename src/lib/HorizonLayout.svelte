@@ -35,7 +35,11 @@ groups they make, focus following a moved tab, and the popout windows' lifecycle
 		cloneConfig,
 		validateConfig
 	} from './utils.ts';
-	import { DEFAULT_MIN_WIDTH_RATIO, DEFAULT_MIN_HEIGHT_RATIO } from './internal-utils.ts';
+	import {
+		DEFAULT_MAX_DEPTH,
+		DEFAULT_MIN_WIDTH_RATIO,
+		DEFAULT_MIN_HEIGHT_RATIO
+	} from './internal-utils.ts';
 	import { dropTargetType, roundSplitPoint, roundSplitPoints } from './internal-utils.ts';
 	import type { DropTarget } from './internal-types.ts';
 	import { reconcileConfig } from './reconcile.ts';
@@ -68,7 +72,7 @@ groups they make, focus following a moved tab, and the popout windows' lifecycle
 		showSplitRatio = false,
 		minWidthRatio = DEFAULT_MIN_WIDTH_RATIO,
 		minHeightRatio = DEFAULT_MIN_HEIGHT_RATIO,
-		maxDepth = 6,
+		maxDepth = DEFAULT_MAX_DEPTH,
 		hideTabBar = false,
 		keyboardControls = {},
 		formatRatio = (ratio: number) => `${(ratio * 100).toFixed(2)}%`,
@@ -105,7 +109,10 @@ groups they make, focus following a moved tab, and the popout windows' lifecycle
 		minWidthRatio?: number;
 		/** Minimum allowed height as a fraction of the split container. */
 		minHeightRatio?: number;
-		/** Maximum nesting depth for splits (prevents infinite subdivision). */
+		/**
+		 * How deep the docked layout may nest, at least 1, counted in tab groups (a lone tab group
+		 * is 1 deep, a split of tab groups 2): no split goes deeper, and a config deeper is invalid.
+		 */
 		maxDepth?: number;
 		/** Hide the tab bar entirely (useful when every group has exactly one tab). */
 		hideTabBar?: boolean;
@@ -448,15 +455,16 @@ groups they make, focus following a moved tab, and the popout windows' lifecycle
 				console.error('HorizonLayout: minHeightRatio must be between 0 and 0.5');
 				return false;
 			}
-			if (maxDepth < 1) {
-				console.error('HorizonLayout: maxDepth must be at least 1');
+			if (!Number.isInteger(maxDepth) || maxDepth < 1) {
+				console.error('HorizonLayout: maxDepth must be an integer of at least 1');
 				return false;
 			}
 
 			try {
 				validateConfig(input, views, {
 					minWidthRatio: minRatioOf('horizontal'),
-					minHeightRatio: minRatioOf('vertical')
+					minHeightRatio: minRatioOf('vertical'),
+					maxDepth
 				});
 			} catch (e) {
 				console.error(`HorizonLayout: ${(e as Error).message}`);

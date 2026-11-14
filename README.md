@@ -148,7 +148,7 @@ update as, deleting it from the map; a config still showing a deleted view is in
 | `showSplitRatio`      | `boolean`                     | `false`               | Show the current split ratio as a label while resizing.                                                                                                                        |
 | `minWidthRatio`       | `number`                      | `0.1`                 | Minimum pane width as a fraction of its split container, from 0 to 0.5.                                                                                                        |
 | `minHeightRatio`      | `number`                      | `0.2`                 | Minimum pane height as a fraction of its split container, from 0 to 0.5.                                                                                                       |
-| `maxDepth`            | `number`                      | `6`                   | Maximum nesting depth, at least 1 (prevents infinite subdivision).                                                                                                             |
+| `maxDepth`            | `number`                      | `6`                   | How deep the docked layout may nest, an integer of at least 1, counted in tab groups (a split of tab groups is 2 deep). A config deeper is invalid.                            |
 | `hideTabBar`          | `boolean`                     | `false`               | Hide the tab bar.                                                                                                                                                              |
 | `keyboardControls`    | `KeyboardControls`            | _(see below)_         | Override built-in keyboard shortcuts.                                                                                                                                          |
 | `formatRatio`         | `(n: number) => string`       | `"50.00%"`            | Format a split ratio for display.                                                                                                                                              |
@@ -417,7 +417,7 @@ dropped. `parseLayoutConfig` only checks the structure, it does not validate tha
 
 ## `validateConfig`
 
-Validate a `LayoutConfig` before passing it to `HorizonLayout`. Throws an `Error` describing the first problem found if the config is invalid, and returns nothing. It checks that every id names a view of `views`, that no view is shown twice, that every `activeTabIndex` is the index of a tab, that every split has two views or more and split points that leave each pane its minimum ratio (both taken at 4 decimals, as the layout takes them), that every floating `rect` has finite numbers and a positive size, and that the maximized view isn't in a popout. The error names the faulty field by its path, for example `config.root.views[1].activeTabIndex: expected an integer from 0 to 2, the index of a tab`.
+Validate a `LayoutConfig` before passing it to `HorizonLayout`. Throws an `Error` describing the first problem found if the config is invalid, and returns nothing. It checks that every id names a view of `views`, that no view is shown twice, that every `activeTabIndex` is the index of a tab, that every split has two views or more and split points that leave each pane its minimum ratio (both taken at 4 decimals, as the layout takes them), that the docked layout nests no deeper than `maxDepth` (counted in tab groups: a split of tab groups is 2 deep), that every floating `rect` has finite numbers and a positive size, and that the maximized view isn't in a popout. The error names the faulty field by its path, for example `config.root.views[1].activeTabIndex: expected an integer from 0 to 2, the index of a tab`, or `config.root.views[0].views[1]: nested 3 deep, deeper than maxDepth (2)`.
 
 ```ts
 import { validateConfig } from 'horizon-layout';
@@ -425,7 +425,8 @@ import { validateConfig } from 'horizon-layout';
 try {
 	validateConfig(config, views, {
 		minWidthRatio: 0.1, // optional, matches your HorizonLayout prop
-		minHeightRatio: 0.2 // optional, matches your HorizonLayout prop
+		minHeightRatio: 0.2, // optional, matches your HorizonLayout prop
+		maxDepth: 4 // optional, matches your HorizonLayout prop
 	});
 	// safe to pass to HorizonLayout, optionally with skipValidation
 } catch (e) {

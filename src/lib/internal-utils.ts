@@ -10,6 +10,8 @@ import type { KeyboardControl, Modifier, NodeConfig, SplitConfig } from './types
 export const DEFAULT_MIN_WIDTH_RATIO = 0.1;
 /** The default minimum height of a pane, as a fraction of its vertical split. */
 export const DEFAULT_MIN_HEIGHT_RATIO = 0.2;
+/** The default deepest docked layout, counted in tab groups (a lone tab group is 1 deep). */
+export const DEFAULT_MAX_DEPTH = 6;
 
 /**
  * Rounds a split point to the precision it is stored with (4 decimals), so that values computed

@@ -23,7 +23,7 @@ import {
 	simplifyTabGroup
 } from '#lib/utils.js';
 import type { ActionId } from './KeyboardControls.svelte';
-import { firstTabGroup, lastTabGroup } from './layout-tree.js';
+import { depthOf, firstTabGroup, lastTabGroup } from './layout-tree.js';
 
 type Direction = 'left' | 'right' | 'up' | 'down';
 type SplitData = { config: SplitConfig; index: number };
@@ -185,10 +185,11 @@ function isFloatingGroup(layout: DemoLayout, group: TabGroupConfig): boolean {
 }
 
 // Docks the active tab of a floating group: into the last or first docked group, or (`asPane`)
-// as a new pane around the whole docked layout. The library's own controls also respect
-// the minimum sizes and maxDepth; this demo keeps it short.
+// as a new pane around the whole docked layout, when maxDepth leaves room for one more level.
+// The library's own controls also keep the panes' minimum sizes; this demo keeps it short.
 function dock(layout: DemoLayout, group: TabGroupConfig, direction: Direction, asPane: boolean) {
 	const { config } = layout;
+	if (asPane && config.root && depthOf(config.root) + 1 > layout.maxDepth) return;
 	const id: Id = group.tabs[group.activeTabIndex]!;
 	const isFirst = direction === 'left' || direction === 'up';
 	removeView(config, id);

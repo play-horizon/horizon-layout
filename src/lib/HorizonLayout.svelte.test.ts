@@ -635,6 +635,7 @@ describe('validation on the inputs it reads', () => {
 		const props = $state({
 			config: initial,
 			ids: ['a', 'b', 'c', 'd'],
+			maxDepth: 6,
 			skipValidation: false
 		});
 		render(LayoutHarness, {
@@ -647,6 +648,9 @@ describe('validation on the inputs it reads', () => {
 				},
 				get ids() {
 					return props.ids;
+				},
+				get maxDepth() {
+					return props.maxDepth;
 				},
 				get skipValidation() {
 					return props.skipValidation;
@@ -680,5 +684,26 @@ describe('validation on the inputs it reads', () => {
 		props.ids = ['a', 'b', 'c', 'd'];
 		flushSync();
 		expect(screen.getAllByRole('tablist')).toHaveLength(2);
+	});
+
+	it('shows nothing while the config is deeper than maxDepth', () => {
+		const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const props = renderInputs(twoPanes());
+
+		props.maxDepth = 1;
+		flushSync();
+		expect(screen.queryByRole('tablist')).toBeNull();
+		expect(error).toHaveBeenCalledWith(
+			'HorizonLayout: config.root.views[0]: nested 2 deep, deeper than maxDepth (1)'
+		);
+
+		props.maxDepth = 2;
+		flushSync();
+		expect(screen.getAllByRole('tablist')).toHaveLength(2);
+
+		props.maxDepth = 2.5;
+		flushSync();
+		expect(screen.queryByRole('tablist')).toBeNull();
+		expect(error).toHaveBeenCalledWith('HorizonLayout: maxDepth must be an integer of at least 1');
 	});
 });

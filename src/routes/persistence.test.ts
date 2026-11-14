@@ -74,6 +74,21 @@ describe('parseDemoState', () => {
 		expect(parseDemoState(saved({ config }))).toBeNull();
 	});
 
+	it('rejects a config deeper than the saved maxDepth', () => {
+		const config = {
+			root: {
+				direction: 'horizontal',
+				views: [
+					{ tabs: ['nested'], activeTabIndex: 0 },
+					{ tabs: ['page-2'], activeTabIndex: 0 }
+				],
+				splitPoints: [0.5]
+			}
+		};
+		expect(parseDemoState(saved({ config, maxDepth: 1 }))).toBeNull();
+		expect(parseDemoState(saved({ config, maxDepth: 2 }))?.config).toEqual(config);
+	});
+
 	it('rejects a config whose panes are smaller than the saved minimum', () => {
 		const config = {
 			root: {

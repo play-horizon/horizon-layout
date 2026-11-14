@@ -4,7 +4,13 @@
  * @module
  */
 import { describe, expect, it } from 'vitest';
-import type { FloatingGroupConfig, LayoutConfig, SplitConfig, TabGroupConfig } from './types.ts';
+import type {
+	FloatingGroupConfig,
+	LayoutConfig,
+	NodeConfig,
+	SplitConfig,
+	TabGroupConfig
+} from './types.ts';
 import {
 	areConfigsEquivalent,
 	buildNodeParentMap,
@@ -76,6 +82,49 @@ describe('validateConfig', () => {
 
 	it('accepts an empty layout', () => {
 		expect(() => validateConfig({}, views)).not.toThrow();
+	});
+
+	it('accepts a layout exactly maxDepth deep', () => {
+		expect(() => validateConfig(threePaneConfig(), views, { maxDepth: 3 })).not.toThrow();
+		expect(() =>
+			validateConfig({ root: { tabs: ['a'], activeTabIndex: 0 } }, views, { maxDepth: 1 })
+		).not.toThrow();
+	});
+
+	it('rejects a layout deeper than maxDepth, naming the first node too deep', () => {
+		expect(() => validateConfig(threePaneConfig(), views, { maxDepth: 2 })).toThrow(
+			'config.root.views[1].views[0]: nested 3 deep, deeper than maxDepth (2)'
+		);
+		expect(() => validateConfig(threePaneConfig(), views, { maxDepth: 1 })).toThrow(
+			'config.root.views[0]: nested 2 deep, deeper than maxDepth (1)'
+		);
+	});
+
+	it('rejects a maxDepth that is not an integer of at least 1', () => {
+		for (const maxDepth of [0, 2.5, Number.NaN]) {
+			expect(() => validateConfig({}, views, { maxDepth })).toThrow(
+				`options.maxDepth: expected an integer of at least 1, got ${maxDepth}`
+			);
+		}
+	});
+
+	it('takes a maxDepth of 6 by default', () => {
+		// Six splits, each the first view of the one around it: tab group a is 7 deep.
+		let root: NodeConfig = { tabs: ['a'], activeTabIndex: 0 };
+		const ids = ['b', 'c', 'd', 'e', 'f', 'g'];
+		for (const id of ids) {
+			root = {
+				direction: 'horizontal',
+				views: [root, { tabs: [id], activeTabIndex: 0 }],
+				splitPoints: [0.5]
+			};
+		}
+		const deepViews = new Map(['a', ...ids].map((id) => [id, {}]));
+
+		expect(() => validateConfig({ root }, deepViews)).toThrow(
+			'config.root.views[0].views[0].views[0].views[0].views[0].views[0]: nested 7 deep, deeper than maxDepth (6)'
+		);
+		expect(() => validateConfig({ root }, deepViews, { maxDepth: 7 })).not.toThrow();
 	});
 
 	it('rejects an unknown tab id', () => {

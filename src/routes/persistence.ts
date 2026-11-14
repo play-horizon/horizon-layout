@@ -8,7 +8,7 @@ import { parseLayoutConfig, validateConfig } from '#lib/utils.js';
 import { pageKinds, type DemoPageDef, type PageKind } from './pages.js';
 import { ratioFormats, type RatioFormat } from './ratio-formats.js';
 import { themes } from './themes.js';
-import { MAX_DEPTH, MAX_MIN_RATIO, MIN_DEPTH } from './constraints.js';
+import { DEFAULT_CONSTRAINTS, MAX_DEPTH, MAX_MIN_RATIO, MIN_DEPTH } from './constraints.js';
 
 const STORAGE_KEY = 'horizon-layout-demo-state';
 
@@ -85,12 +85,23 @@ export function parseDemoState(saved: Record<string, unknown>): DemoState | null
 	if (pagesById.size !== pages.length || !pages.some((page) => page.kind === 'nested')) {
 		return null;
 	}
-	const minWidthRatio = clamp(numberOr(saved['minWidthRatio'], 0.1), 0, MAX_MIN_RATIO);
-	const minHeightRatio = clamp(numberOr(saved['minHeightRatio'], 0.2), 0, MAX_MIN_RATIO);
+	const minWidthRatio = clamp(
+		numberOr(saved['minWidthRatio'], DEFAULT_CONSTRAINTS.minWidthRatio),
+		0,
+		MAX_MIN_RATIO
+	);
+	const minHeightRatio = clamp(
+		numberOr(saved['minHeightRatio'], DEFAULT_CONSTRAINTS.minHeightRatio),
+		0,
+		MAX_MIN_RATIO
+	);
+	const maxDepth = Math.round(
+		clamp(numberOr(saved['maxDepth'], DEFAULT_CONSTRAINTS.maxDepth), MIN_DEPTH, MAX_DEPTH)
+	);
 	let config: LayoutConfig;
 	try {
 		config = parseLayoutConfig(saved['config']);
-		validateConfig(config, pagesById, { minWidthRatio, minHeightRatio });
+		validateConfig(config, pagesById, { minWidthRatio, minHeightRatio, maxDepth });
 	} catch {
 		return null;
 	}
@@ -107,7 +118,7 @@ export function parseDemoState(saved: Record<string, unknown>): DemoState | null
 		skipValidation: !!saved['skipValidation'],
 		minWidthRatio,
 		minHeightRatio,
-		maxDepth: Math.round(clamp(numberOr(saved['maxDepth'], 6), MIN_DEPTH, MAX_DEPTH)),
+		maxDepth,
 		ratioFormat:
 			typeof ratioFormat === 'string' && ratioFormat in ratioFormats
 				? (ratioFormat as RatioFormat)

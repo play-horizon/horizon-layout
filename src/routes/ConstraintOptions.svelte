@@ -1,13 +1,15 @@
 <!--
 @component
 The split constraints of a HorizonLayout: the minimum pane width and height and the maximum split
-depth. A minimum some split can't satisfy is refused with a notice; an accepted one moves the
-config's split points back into range, so the layout never shows its error state.
+depth. A minimum some split can't satisfy, or a depth the layout is already deeper than, is
+refused with a notice; an accepted minimum moves the config's split points back into range, so
+the layout never shows its error state.
 -->
 <script lang="ts">
 	import type { LayoutConfig, NodeConfig, SplitConfig } from '#lib/types.js';
 	import { nodeConfigType } from '#lib/utils.js';
 	import { MAX_DEPTH, MAX_MIN_RATIO, MIN_DEPTH } from './constraints.js';
+	import { depthOf } from './layout-tree.js';
 
 	let {
 		config = $bindable(),
@@ -98,7 +100,14 @@ config's split points back into range, so the layout never shows its error state
 	}
 
 	function onMaxDepthChanged(input: HTMLInputElement) {
-		maxDepth = Math.round(Math.min(Math.max(Number(input.value), MIN_DEPTH), MAX_DEPTH));
+		const value = Math.round(Math.min(Math.max(Number(input.value), MIN_DEPTH), MAX_DEPTH));
+		const depth = config.root ? depthOf(config.root) : 0;
+		if (value >= depth) {
+			notice = '';
+			maxDepth = value;
+		} else {
+			notice = `Too small: the layout is ${depth} deep`;
+		}
 		input.value = String(maxDepth);
 	}
 

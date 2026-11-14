@@ -96,6 +96,21 @@ describe('ConstraintOptions', () => {
 		expect(depth.value).toBe('10');
 	});
 
+	it('refuses a maximum depth the layout is already deeper than', async () => {
+		const state = renderOptions();
+		const depth = screen.getByLabelText('Max split depth') as HTMLInputElement;
+
+		// Three panes side by side: a split of tab groups, 2 deep.
+		await fireEvent.change(depth, { target: { value: '1' } });
+		expect(state.maxDepth).toBe(6);
+		expect(depth.value).toBe('6');
+		expect(screen.getByRole('alert').textContent).toBe('Too small: the layout is 2 deep');
+
+		await fireEvent.change(depth, { target: { value: '2' } });
+		expect(state.maxDepth).toBe(2);
+		expect(screen.queryByRole('alert')).toBeNull();
+	});
+
 	it('takes a minimum at 4 decimals, as the layout does, keeping the split points valid', async () => {
 		const state = renderOptions();
 		state.config.root = {

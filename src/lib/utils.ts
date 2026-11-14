@@ -9,6 +9,7 @@ import { SvelteMap } from 'svelte/reactivity';
 import {
 	DEFAULT_MIN_WIDTH_RATIO,
 	DEFAULT_MIN_HEIGHT_RATIO,
+	DEFAULT_MAX_DEPTH,
 	roundSplitPoint
 } from './internal-utils.ts';
 import type {
@@ -172,18 +173,24 @@ export interface ValidateConfigOptions {
 	minWidthRatio?: number;
 	/** Minimum pane height, as a fraction of its vertical split's height. Default: 0.2. */
 	minHeightRatio?: number;
+	/**
+	 * How deep the docked layout may nest, counted in tab groups: a lone tab group is 1 deep, a
+	 * split of tab groups 2. An integer of at least 1. Default: 6.
+	 */
+	maxDepth?: number;
 }
 
 /**
  * Checks that `config` can be shown with `views`: every id names a view, no view is shown twice,
  * every `activeTabIndex` is the index of a tab, every split has two views or more and split
- * points that leave each pane its minimum ratio, every floating rect has finite numbers and a
- * positive size, and the maximized view isn't in a popout. Pass the `minWidthRatio` and
- * `minHeightRatio` given to HorizonLayout, so split points are checked with its thresholds; like
- * HorizonLayout, it takes them, and the split points, at the 4-decimal precision split points are
- * stored with.
+ * points that leave each pane its minimum ratio, the docked layout nests no deeper than
+ * `maxDepth`, every floating rect has finite numbers and a positive size, and the maximized view
+ * isn't in a popout. Pass the `minWidthRatio`, `minHeightRatio` and `maxDepth` given to
+ * HorizonLayout, so the config is checked with its limits; like HorizonLayout, it takes the
+ * ratios, and the split points, at the 4-decimal precision split points are stored with.
  *
- * @throws Error naming the first faulty field by its path, for example
+ * @throws Error naming the first faulty field by its path (or `options.maxDepth` when it isn't an
+ * integer of at least 1), for example
  * `config.root.views[1].activeTabIndex: expected an integer from 0 to 2, the index of a tab`.
  *
  * @example
@@ -197,6 +204,10 @@ export function validateConfig<V>(
 	// At the precision split points are stored with, as HorizonLayout applies them.
 	const minWidthRatio = roundSplitPoint(options.minWidthRatio ?? DEFAULT_MIN_WIDTH_RATIO);
 	const minHeightRatio = roundSplitPoint(options.minHeightRatio ?? DEFAULT_MIN_HEIGHT_RATIO);
+	const maxDepth = options.maxDepth ?? DEFAULT_MAX_DEPTH;
+	if (!Number.isInteger(maxDepth) || maxDepth < 1) {
+		throw new Error(`options.maxDepth: expected an integer of at least 1, got ${maxDepth}`);
+	}
 
 	if (config.maximizedView && !views.has(config.maximizedView)) {
 		throw new Error(`config.maximizedView: unknown view id "${config.maximizedView}"`);
@@ -232,7 +243,7 @@ export function validateConfig<V>(
 		}
 	};
 
-	const validateSplit = (split: SplitConfig, path: string) => {
+	const validateSplit = (split: SplitConfig, path: string, depth: number) => {
 		if (split.views.length < 2) throw new Error(`${path}.views: expected at least two views`);
 		if (split.splitPoints.length !== split.views.length - 1) {
 			throw new Error(`${path}.splitPoints: expected one split point per gap between views`);
@@ -249,14 +260,18 @@ export function validateConfig<V>(
 			}
 		}
 		for (const [i, child] of split.views.entries()) {
-			validateNode(child, `${path}.views[${i}]`);
+			validateNode(child, `${path}.views[${i}]`, depth + 1);
 		}
 	};
 
-	const validateNode = (node: NodeConfig, path: string) =>
-		nodeConfigType(node) === 'split'
-			? validateSplit(node as SplitConfig, path)
-			: validateTabGroup(node as TabGroupConfig, path);
+	// `depth` is how deep `node` is: the root is 1 deep, its views 2, and so on.
+	const validateNode = (node: NodeConfig, path: string, depth: number) => {
+		if (depth > maxDepth) {
+			throw new Error(`${path}: nested ${depth} deep, deeper than maxDepth (${maxDepth})`);
+		}
+		if (nodeConfigType(node) === 'split') validateSplit(node as SplitConfig, path, depth);
+		else validateTabGroup(node as TabGroupConfig, path);
+	};
 
 	for (const [i, group] of (config.floating ?? []).entries()) {
 		validateTabGroup(group, `config.floating[${i}]`);
@@ -268,7 +283,7 @@ export function validateConfig<V>(
 		}
 	}
 
-	if (config.root) validateNode(config.root, 'config.root');
+	if (config.root) validateNode(config.root, 'config.root', 1);
 }
 
 // Any of a split's fields makes `object` a split, so a malformed split reports what it lacks

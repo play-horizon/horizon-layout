@@ -28,6 +28,7 @@ actions and the popout bookkeeping live in their own modules.
 	import PopoutIcon from '~icons/mingcute/external-link-line';
 	import { defaultConfig, defaultPages, highestPageNumber, type DemoPageDef } from './pages.js';
 	import { lastTabGroup } from './layout-tree.js';
+	import { DEFAULT_CONSTRAINTS } from './constraints.js';
 	import { PopoutOrigins } from './popout-origins.js';
 	import {
 		buildKeyboardControls,
@@ -49,9 +50,9 @@ actions and the popout bookkeeping live in their own modules.
 	let disableDragAndDrop = $state(false);
 	let hideTabBar = $state(false);
 	let skipValidation = $state(false);
-	let minWidthRatio = $state(0.1);
-	let minHeightRatio = $state(0.2);
-	let maxDepth = $state(6);
+	let minWidthRatio: number = $state(DEFAULT_CONSTRAINTS.minWidthRatio);
+	let minHeightRatio: number = $state(DEFAULT_CONSTRAINTS.minHeightRatio);
+	let maxDepth: number = $state(DEFAULT_CONSTRAINTS.maxDepth);
 	let ratioFormat = $state<RatioFormat>('percent');
 
 	/** Whether the layout, pages, theme and options persist in localStorage. */
@@ -133,8 +134,11 @@ actions and the popout bookkeeping live in their own modules.
 
 	const popoutOrigins = new PopoutOrigins();
 
+	// The default layout and the default constraints, which it meets: constraints changed since
+	// (a larger minimum, a smaller depth) could make it invalid.
 	function resetLayout() {
 		setPages(defaultPages());
+		({ minWidthRatio, minHeightRatio, maxDepth } = DEFAULT_CONSTRAINTS);
 		config = defaultConfig();
 		nextPageNumber = 1;
 		popoutOrigins.clear();
@@ -143,7 +147,7 @@ actions and the popout bookkeeping live in their own modules.
 	function onPopoutClose(viewId: Id) {
 		popoutOrigins.restore(config, viewId, (candidate) => {
 			try {
-				validateConfig(candidate, views, { minWidthRatio, minHeightRatio });
+				validateConfig(candidate, views, { minWidthRatio, minHeightRatio, maxDepth });
 				return true;
 			} catch {
 				return false;
