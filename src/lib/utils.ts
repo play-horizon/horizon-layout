@@ -302,7 +302,7 @@ function parseId(object: unknown, path: string): Id {
 /// Parses an unknown value (e.g. from JSON.parse) into a LayoutConfig,
 /// throwing an error if the value does not match the expected shape.
 export function parseLayoutConfig(object: unknown): LayoutConfig {
-	if (typeof object !== 'object' || object === null) throw new Error('root: expected an object');
+	if (typeof object !== 'object' || object === null) throw new Error('config: expected an object');
 	const { root, floating, maximizedView, popouts } = object as Record<string, unknown>;
 	const result: LayoutConfig = {};
 	if (root != null) result.root = parseNodeConfig(root, 'config.root');
@@ -315,8 +315,12 @@ export function parseLayoutConfig(object: unknown): LayoutConfig {
 		}
 	}
 	if (maximizedView != null) result.maximizedView = parseId(maximizedView, 'config.maximizedView');
-	if (Array.isArray(popouts) && popouts.length > 0)
-		result.popouts = popouts.map((p, i) => parseId(p, `config.popouts[${i}]`));
+	if (popouts != null) {
+		if (!Array.isArray(popouts)) throw new Error('config.popouts: expected an array');
+		if (popouts.length > 0) {
+			result.popouts = popouts.map((p, i) => parseId(p, `config.popouts[${i}]`));
+		}
+	}
 	return result;
 }
 

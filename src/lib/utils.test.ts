@@ -336,11 +336,12 @@ describe('parseLayoutConfig', () => {
 		expect(() => parseLayoutConfig({ popouts: ['a', 3] })).toThrow(
 			'config.popouts[1]: expected a non-empty string'
 		);
+		expect(() => parseLayoutConfig({ popouts: 'a' })).toThrow('config.popouts: expected an array');
 	});
 
 	it('rejects values that are not objects', () => {
-		expect(() => parseLayoutConfig(null)).toThrow('root: expected an object');
-		expect(() => parseLayoutConfig('layout')).toThrow('root: expected an object');
+		expect(() => parseLayoutConfig(null)).toThrow('config: expected an object');
+		expect(() => parseLayoutConfig('layout')).toThrow('config: expected an object');
 	});
 
 	it('rejects an empty tab id', () => {
@@ -383,6 +384,9 @@ describe('parseLayoutConfig with floating groups', () => {
 
 	it('says what is wrong with a floating group', () => {
 		expect(() => parseLayoutConfig({ floating: {} })).toThrow('config.floating: expected an array');
+		expect(() => parseLayoutConfig({ floating: [3] })).toThrow(
+			'config.floating[0]: expected an object'
+		);
 		expect(() => parseLayoutConfig({ floating: [{ tabs: ['a'], activeTabIndex: 0 }] })).toThrow(
 			'config.floating[0].rect: expected an object'
 		);
