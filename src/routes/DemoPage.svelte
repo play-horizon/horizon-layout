@@ -1,7 +1,8 @@
 <!--
 @component
 The content of one page of the main layout, chosen by `kind`; the `config` page shows the live
-layout config. The page scrolls, as a region named by its title that takes the focus.
+layout config. The page is a region named by its title that takes the focus, scrolled by the layout
+when it is taller than its pane.
 -->
 <script lang="ts" module>
 	/**
@@ -86,7 +87,8 @@ else floatView(config, 'docs', { x: 80, y: 60, width: 420, height: 520 });`;
 <HorizonLayout bind:config {views} />`;
 </script>
 
-<!-- A region that scrolls takes the focus, so the keyboard scrolls it too (WCAG 2.1.1; axe's
+<!-- The layout scrolls a page taller than its pane (a tab group's content, a maximised view, a
+popout's content); the page takes the focus, so the keyboard scrolls it too (WCAG 2.1.1; axe's
 scrollable-region-focusable). -->
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 <div class="page" role="region" aria-label={title} tabindex="0">
@@ -139,9 +141,11 @@ scrollable-region-focusable). -->
 <style>
 	.page {
 		box-sizing: border-box;
+		/* The page's wrapper is a flex column: growing with its content rather than shrinking to
+		   the pane keeps its padding and its focus ring inside what the layout scrolls. */
+		flex: none;
 		width: 100%;
-		height: 100%;
-		overflow: auto;
+		min-height: 100%;
 		padding: 0.75rem 1rem;
 		font-size: 0.8rem;
 		line-height: 1.55;
