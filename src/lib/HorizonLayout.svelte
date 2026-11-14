@@ -886,7 +886,9 @@
 
 	function retryPendingPopouts() {
 		const now = Date.now();
-		for (const [id, since] of pendingPopouts.entries()) {
+		// A copy: a retry blocked again adds its id back, which a live iteration would visit
+		// again at once, retrying forever.
+		for (const [id, since] of Array.from(pendingPopouts)) {
 			if (now - since >= POPOUT_BLOCKED_TIMEOUT_MS) {
 				pendingPopouts.delete(id);
 				handleBlockedPopout(id);
