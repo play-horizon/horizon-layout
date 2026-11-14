@@ -14,6 +14,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Fail on CRLF line endings
         run: |
@@ -61,6 +63,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       # The Node version too, for the publish job, which has no checkout.
       - name: Get version
@@ -124,10 +128,6 @@ jobs:
         with:
           node-version: ${{ needs.package.outputs.node }}
           registry-url: 'https://registry.npmjs.org'
-
-      - name: Update npm
-        if: steps.tag_exists.outputs.exists == 'false'
-        run: npm install -g npm@latest
 
       # Publish before tagging: the tag marks the version as released, so a failed publish
       # must leave no tag behind, or the next run would skip it.
