@@ -169,9 +169,9 @@ export function areConfigsEquivalent(config1: LayoutConfig, config2: LayoutConfi
 
 /** The thresholds `validateConfig` checks split points with. */
 export interface ValidateConfigOptions {
-	/** Minimum pane width, as a fraction of its horizontal split's width. Default: 0.1. */
+	/** Minimum pane width, as a fraction of its horizontal split's width, from 0 to 0.5. Default: 0.1. */
 	minWidthRatio?: number;
-	/** Minimum pane height, as a fraction of its vertical split's height. Default: 0.2. */
+	/** Minimum pane height, as a fraction of its vertical split's height, from 0 to 0.5. Default: 0.2. */
 	minHeightRatio?: number;
 	/**
 	 * How deep the docked layout may nest, counted in tab groups: a lone tab group is 1 deep, a
@@ -189,8 +189,8 @@ export interface ValidateConfigOptions {
  * HorizonLayout, so the config is checked with its limits; like HorizonLayout, it takes the
  * ratios, and the split points, at the 4-decimal precision split points are stored with.
  *
- * @throws Error naming the first faulty field by its path (or `options.maxDepth` when it isn't an
- * integer of at least 1), for example
+ * @throws Error naming the first faulty field by its path (or the option out of its range, for
+ * example `options.maxDepth: expected an integer of at least 1, got 0`), for example
  * `config.root.views[1].activeTabIndex: expected an integer from 0 to 2, the index of a tab`.
  *
  * @example
@@ -201,13 +201,20 @@ export function validateConfig<V>(
 	views: ReadonlyMap<Id, V>,
 	options: ValidateConfigOptions = {}
 ) {
-	// At the precision split points are stored with, as HorizonLayout applies them.
-	const minWidthRatio = roundSplitPoint(options.minWidthRatio ?? DEFAULT_MIN_WIDTH_RATIO);
-	const minHeightRatio = roundSplitPoint(options.minHeightRatio ?? DEFAULT_MIN_HEIGHT_RATIO);
+	for (const name of ['minWidthRatio', 'minHeightRatio'] as const) {
+		const ratio = options[name];
+		// Written so NaN fails too.
+		if (ratio !== undefined && !(ratio >= 0 && ratio <= 0.5)) {
+			throw new Error(`options.${name}: expected a number from 0 to 0.5, got ${ratio}`);
+		}
+	}
 	const maxDepth = options.maxDepth ?? DEFAULT_MAX_DEPTH;
 	if (!Number.isInteger(maxDepth) || maxDepth < 1) {
 		throw new Error(`options.maxDepth: expected an integer of at least 1, got ${maxDepth}`);
 	}
+	// At the precision split points are stored with, as HorizonLayout applies them.
+	const minWidthRatio = roundSplitPoint(options.minWidthRatio ?? DEFAULT_MIN_WIDTH_RATIO);
+	const minHeightRatio = roundSplitPoint(options.minHeightRatio ?? DEFAULT_MIN_HEIGHT_RATIO);
 
 	if (config.maximizedView && !views.has(config.maximizedView)) {
 		throw new Error(`config.maximizedView: unknown view id "${config.maximizedView}"`);

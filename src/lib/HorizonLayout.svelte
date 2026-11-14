@@ -450,11 +450,12 @@ lifecycle.
 	// Whether an external LayoutConfig can be shown; logs the first violated constraint when not.
 	function isValidConfig(input: LayoutConfig): boolean {
 		if (!skipValidation) {
-			if (minWidthRatio < 0 || minWidthRatio > 0.5) {
+			// Written so NaN fails too.
+			if (!(minWidthRatio >= 0 && minWidthRatio <= 0.5)) {
 				console.error('HorizonLayout: minWidthRatio must be between 0 and 0.5');
 				return false;
 			}
-			if (minHeightRatio < 0 || minHeightRatio > 0.5) {
+			if (!(minHeightRatio >= 0 && minHeightRatio <= 0.5)) {
 				console.error('HorizonLayout: minHeightRatio must be between 0 and 0.5');
 				return false;
 			}

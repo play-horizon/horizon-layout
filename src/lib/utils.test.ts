@@ -100,6 +100,20 @@ describe('validateConfig', () => {
 		);
 	});
 
+	it('rejects a minimum ratio that is not a number from 0 to 0.5', () => {
+		for (const ratio of [-0.1, 0.6, Number.NaN]) {
+			expect(() => validateConfig({}, views, { minWidthRatio: ratio })).toThrow(
+				`options.minWidthRatio: expected a number from 0 to 0.5, got ${ratio}`
+			);
+			expect(() => validateConfig({}, views, { minHeightRatio: ratio })).toThrow(
+				`options.minHeightRatio: expected a number from 0 to 0.5, got ${ratio}`
+			);
+		}
+		expect(() =>
+			validateConfig({}, views, { minWidthRatio: 0, minHeightRatio: 0.5 })
+		).not.toThrow();
+	});
+
 	it('rejects a maxDepth that is not an integer of at least 1', () => {
 		for (const maxDepth of [0, 2.5, Number.NaN]) {
 			expect(() => validateConfig({}, views, { maxDepth })).toThrow(

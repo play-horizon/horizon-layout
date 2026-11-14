@@ -686,6 +686,16 @@ describe('validation on the inputs it reads', () => {
 		expect(screen.getAllByRole('tablist')).toHaveLength(2);
 	});
 
+	it('shows nothing with a minimum ratio that is not a number', () => {
+		const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+		render(LayoutHarness, {
+			props: { config: twoPanes(), ids: ['a', 'b', 'c'], minWidthRatio: NaN }
+		});
+
+		expect(screen.queryByRole('tablist')).toBeNull();
+		expect(error).toHaveBeenCalledWith('HorizonLayout: minWidthRatio must be between 0 and 0.5');
+	});
+
 	it('shows nothing while the config is deeper than maxDepth', () => {
 		const error = vi.spyOn(console, 'error').mockImplementation(() => {});
 		const props = renderInputs(twoPanes());
