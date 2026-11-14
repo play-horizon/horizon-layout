@@ -8,7 +8,7 @@ Internal to HorizonLayout, rendered by LayoutNode for a docked group and by Floa
 <script lang="ts">
 	import type { Id, KeyboardControl, TabGroupConfig, View } from './types.ts';
 	import { onDestroy, type Snippet } from 'svelte';
-	import { getModifier } from './internal-utils.ts';
+	import { findControl } from './internal-utils.ts';
 	import type { SvelteMap } from 'svelte/reactivity';
 	import type { DropSide, DropTarget } from './internal-types.ts';
 
@@ -66,17 +66,11 @@ Internal to HorizonLayout, rendered by LayoutNode for a docked group and by Floa
 	}
 
 	function handleKeyDown(event: KeyboardEvent) {
-		const modifier = getModifier(event);
-		for (const control of keyboardControls) {
-			for (const shortcut of control.shortcuts) {
-				if (modifier === (shortcut.modifier ?? null) && event.key === shortcut.key) {
-					event.preventDefault();
-					event.stopPropagation();
-					control.action(config, event);
-					return;
-				}
-			}
-		}
+		const control = findControl(keyboardControls, event);
+		if (!control) return;
+		event.preventDefault();
+		event.stopPropagation();
+		control.action(config, event);
 	}
 
 	// The layout sets the drag image and the allowed effect.

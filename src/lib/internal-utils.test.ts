@@ -4,7 +4,8 @@
  * @module
  */
 import { describe, expect, it } from 'vitest';
-import { dropTargetType, getModifier, roundSplitPoint } from './internal-utils.ts';
+import { dropTargetType, findControl, getModifier, roundSplitPoint } from './internal-utils.ts';
+import type { KeyboardControl } from './types.ts';
 
 describe('getModifier', () => {
 	it.each([
@@ -19,6 +20,29 @@ describe('getModifier', () => {
 	])('maps %o to %s', (keys, modifier) => {
 		const event = { ctrlKey: false, altKey: false, shiftKey: false, ...keys } as KeyboardEvent;
 		expect(getModifier(event)).toBe(modifier);
+	});
+});
+
+describe('findControl', () => {
+	const plain: KeyboardControl<null> = { shortcuts: [{ key: 'ArrowLeft' }], action: () => {} };
+	const ctrl: KeyboardControl<null> = {
+		shortcuts: [{ key: 'Home' }, { modifier: 'ctrl', key: 'ArrowLeft' }],
+		action: () => {}
+	};
+	const key = (init: KeyboardEventInit) => new KeyboardEvent('keydown', init);
+
+	it('finds the control with the key and exactly its modifiers', () => {
+		expect(findControl([plain, ctrl], key({ key: 'ArrowLeft' }))).toBe(plain);
+		expect(findControl([plain, ctrl], key({ key: 'ArrowLeft', ctrlKey: true }))).toBe(ctrl);
+		expect(findControl([plain, ctrl], key({ key: 'Home' }))).toBe(ctrl);
+		expect(findControl([plain, ctrl], key({ key: 'ArrowLeft', shiftKey: true }))).toBeUndefined();
+	});
+
+	it('matches nothing while Meta is held', () => {
+		expect(findControl([plain, ctrl], key({ key: 'ArrowLeft', metaKey: true }))).toBeUndefined();
+		expect(
+			findControl([plain, ctrl], key({ key: 'ArrowLeft', metaKey: true, ctrlKey: true }))
+		).toBeUndefined();
 	});
 });
 

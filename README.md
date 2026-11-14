@@ -335,7 +335,8 @@ The keys work on the focused frame itself, not on its tab list or its content.
 | `Escape`              | Blur the frame                 |
 
 Modifiers match exactly: a shortcut without one only runs when none of Ctrl, Alt and Shift is
-held. Meta (Command) is ignored. Pass `keyboardControls` to override any subset of these.
+held. No shortcut runs while Meta (Command) is held: those keys stay the browser's and the
+system's. Pass `keyboardControls` to override any subset of these.
 
 ---
 

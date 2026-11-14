@@ -13,7 +13,7 @@ keyboard controls, and an optional ratio label. Internal to HorizonLayout, rende
 		LayoutTranslations,
 		TabGroupConfig
 	} from './types.ts';
-	import { getModifier, roundSplitPoint } from './internal-utils.ts';
+	import { findControl, roundSplitPoint } from './internal-utils.ts';
 	import HorizonLayoutNode from './LayoutNode.svelte';
 	import { onDestroy, type Snippet } from 'svelte';
 	import type { DropTarget } from './internal-types.ts';
@@ -125,17 +125,11 @@ keyboard controls, and an optional ratio label. Internal to HorizonLayout, rende
 	}
 
 	function handleKeyDown(event: KeyboardEvent, index: number) {
-		const modifier = getModifier(event);
-		for (const control of keyboardControls.splitControls) {
-			for (const shortcut of control.shortcuts) {
-				if (modifier === (shortcut.modifier ?? null) && event.key === shortcut.key) {
-					event.preventDefault();
-					event.stopPropagation();
-					control.action({ config, index }, event);
-					return;
-				}
-			}
-		}
+		const control = findControl(keyboardControls.splitControls, event);
+		if (!control) return;
+		event.preventDefault();
+		event.stopPropagation();
+		control.action({ config, index }, event);
 	}
 </script>
 

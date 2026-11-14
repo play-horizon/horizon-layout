@@ -96,7 +96,8 @@ export interface LayoutConfig {
 
 /**
  * The modifier keys a shortcut needs, all of them and no other: a shortcut without a modifier
- * only matches a key pressed with none of Ctrl, Alt and Shift. The Meta (Command) key is ignored.
+ * only matches a key pressed with none of Ctrl, Alt and Shift. No shortcut matches a key pressed
+ * with Meta (Command): those belong to the browser and the system.
  */
 export type Modifier =
 	| 'ctrl'

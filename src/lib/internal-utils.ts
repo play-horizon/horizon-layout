@@ -1,10 +1,10 @@
 /**
  * Small helpers and defaults shared by the library's components and its public utilities:
- * split-point rounding, keyboard modifiers and drop targets. Internal to the library.
+ * split-point rounding, matching keyboard controls and drop targets. Internal to the library.
  * @module
  */
 import type { DropTarget } from './internal-types.ts';
-import type { Modifier } from './types.ts';
+import type { KeyboardControl, Modifier } from './types.ts';
 
 /** The default minimum width of a pane, as a fraction of its horizontal split. */
 export const DEFAULT_MIN_WIDTH_RATIO = 0.1;
@@ -20,8 +20,26 @@ export function roundSplitPoint(ratio: number): number {
 }
 
 /**
+ * Returns the control one of whose shortcuts is the key of `event` with exactly its modifiers,
+ * or undefined. A key pressed with Meta (Command) matches nothing: those chords belong to the
+ * browser and the system (Command + Left goes back, on macOS).
+ */
+export function findControl<T>(
+	controls: readonly KeyboardControl<T>[],
+	event: KeyboardEvent
+): KeyboardControl<T> | undefined {
+	if (event.metaKey) return undefined;
+	const modifier = getModifier(event);
+	return controls.find((control) =>
+		control.shortcuts.some(
+			(shortcut) => modifier === (shortcut.modifier ?? null) && event.key === shortcut.key
+		)
+	);
+}
+
+/**
  * Returns the modifier (ctrl, alt, shift, or a combination of them) held during the keyboard
- * event, or null if no modifier keys were pressed. Meta is ignored.
+ * event, or null if none of them is held.
  */
 export function getModifier(event: KeyboardEvent): Modifier | null {
 	if (event.ctrlKey && event.altKey && event.shiftKey) return 'ctrl+alt+shift';

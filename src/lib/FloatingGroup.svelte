@@ -10,7 +10,7 @@ list of floating groups and their stacking order.
 	import type { SvelteMap } from 'svelte/reactivity';
 	import HorizonTabGroup from './TabGroup.svelte';
 	import { clampFloatingRect, resizedRect, type ResizeEdge } from './floating.ts';
-	import { getModifier } from './internal-utils.ts';
+	import { findControl } from './internal-utils.ts';
 	import type { DropTarget } from './internal-types.ts';
 	import type {
 		FloatingControlData,
@@ -146,17 +146,11 @@ list of floating groups and their stacking order.
 	function handleKeyDown(event: KeyboardEvent) {
 		// Only on the frame itself: keys pressed in the tab list or the content are theirs.
 		if (event.target !== event.currentTarget) return;
-		const modifier = getModifier(event);
-		for (const control of floatingControls) {
-			for (const shortcut of control.shortcuts) {
-				if (modifier === (shortcut.modifier ?? null) && event.key === shortcut.key) {
-					event.preventDefault();
-					event.stopPropagation();
-					control.action({ config, bounds }, event);
-					return;
-				}
-			}
-		}
+		const control = findControl(floatingControls, event);
+		if (!control) return;
+		event.preventDefault();
+		event.stopPropagation();
+		control.action({ config, bounds }, event);
 	}
 </script>
 
