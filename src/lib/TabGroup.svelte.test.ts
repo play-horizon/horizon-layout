@@ -9,7 +9,7 @@ import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { createRawSnippet, tick } from 'svelte';
 import { SvelteMap } from 'svelte/reactivity';
 import HorizonLayout from './HorizonLayout.svelte';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { fakeDataTransfer } from '../test/drag.ts';
 import LayoutHarness from '../test/LayoutHarness.svelte';
 import { readFileSync } from 'node:fs';
@@ -121,6 +121,126 @@ describe('tab groups', () => {
 		expect(screen.getByRole('tabpanel', { name: 'Title of c' })).toBeTruthy();
 	});
 
+	/**
+	 * Gives every strip a box 100 px wide, and the tab titled `title` one at 150 px, `width` wide,
+	 * past the strip's end: jsdom has no layout.
+	 */
+	function stubOverflow(title: string, width = 50) {
+		return vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (
+			this: Element
+		) {
+			if (this.classList.contains('horizon-layout-tabgroup__tabs'))
+				return new DOMRect(0, 0, 100, 32);
+			if (this.querySelector(':scope > [role="tab"]')?.textContent === title) {
+				return new DOMRect(150, 0, width, 32);
+			}
+			return new DOMRect();
+		});
+	}
+
+	function stripOf(tabList: HTMLElement): HTMLElement {
+		return tabList.parentElement!;
+	}
+
+	it('scroll their strip to the tab a key makes active', async () => {
+		renderGroup();
+		const boxes = stubOverflow('Title of c');
+		const tabList = screen.getByRole('tablist');
+
+		await fireEvent.keyDown(tabList, { key: 'End' });
+		await tick();
+		expect(stripOf(tabList).scrollLeft).toBe(100);
+		boxes.mockRestore();
+	});
+
+	it('scroll their strip to the start of an active tab wider than it', async () => {
+		renderGroup();
+		const boxes = stubOverflow('Title of c', 160);
+		const tabList = screen.getByRole('tablist');
+
+		await fireEvent.keyDown(tabList, { key: 'End' });
+		await tick();
+		expect(stripOf(tabList).scrollLeft).toBe(150);
+		boxes.mockRestore();
+	});
+
+	it('scroll their strip in its own pixels when it is scaled by a transform', async () => {
+		renderGroup();
+		const boxes = stubOverflow('Title of c');
+		// The strip's box is 100 px wide on the screen, 50 px in its own pixels: scaled by 2.
+		const widths = vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(50);
+		const tabList = screen.getByRole('tablist');
+
+		await fireEvent.keyDown(tabList, { key: 'End' });
+		await tick();
+		expect(stripOf(tabList).scrollLeft).toBe(50);
+		widths.mockRestore();
+		boxes.mockRestore();
+	});
+
+	it('scroll their strip in a shadow root too', async () => {
+		const host = document.createElement('div');
+		document.body.append(host);
+		const shadow = host.attachShadow({ mode: 'open' });
+		try {
+			render(LayoutHarness, {
+				target: shadow as unknown as HTMLElement,
+				props: {
+					config: { root: { tabs: ['a', 'b', 'c'], activeTabIndex: 1 } },
+					ids: ['a', 'b', 'c']
+				}
+			});
+			const boxes = stubOverflow('Title of c');
+			const tabList = shadow.querySelector<HTMLElement>('[role="tablist"]')!;
+
+			await fireEvent.keyDown(tabList, { key: 'End' });
+			await tick();
+			expect(stripOf(tabList).scrollLeft).toBe(100);
+			boxes.mockRestore();
+		} finally {
+			host.remove();
+		}
+	});
+
+	it('scroll their strip to the tab clicked, the press focusing the tab list', async () => {
+		renderGroup();
+		const boxes = stubOverflow('Title of c');
+
+		await fireEvent.click(screen.getByRole('tab', { name: 'Title of c' }));
+		expect(document.activeElement).toBe(screen.getByRole('tablist'));
+		expect(stripOf(screen.getByRole('tablist')).scrollLeft).toBe(100);
+		boxes.mockRestore();
+	});
+
+	it('scroll their strip to the active tab when a tab moved there takes the focus', async () => {
+		renderLayout(twoPanes());
+		const boxes = stubOverflow('Title of a');
+		const [first, second] = screen.getAllByRole('tablist');
+
+		await fireEvent.keyDown(first!, { key: 'ArrowRight', ctrlKey: true });
+		await tick();
+		await tick();
+		expect(document.activeElement).toBe(second);
+		expect(stripOf(second!).scrollLeft).toBe(100);
+		boxes.mockRestore();
+	});
+
+	it('leave their strip where it is when a drag starts, focusing the tab list', async () => {
+		renderGroup();
+		const boxes = stubOverflow('Title of b');
+
+		await fireEvent.dragStart(screen.getByRole('tab', { name: 'Title of c' }), {
+			dataTransfer: dataTransfer()
+		});
+		expect(document.activeElement).toBe(screen.getByRole('tablist'));
+		expect(stripOf(screen.getByRole('tablist')).scrollLeft).toBe(0);
+		// The drag ends before it took the tab out: the focus stays on the tab list.
+		await fireEvent.dragEnd(window);
+		await tick();
+		expect(document.activeElement).toBe(screen.getByRole('tablist'));
+		boxes.mockRestore();
+	});
+
 	it('move the active descendant with the keys pressed in the tab list', async () => {
 		renderGroup();
 		const tabList = screen.getByRole('tablist');
@@ -214,6 +334,9 @@ describe('tab groups', () => {
 			],
 			splitPoints: [0.5]
 		});
+		// Focus follows the tab, as after a move with the keys.
+		await tick();
+		expect(document.activeElement).toBe(screen.getAllByRole('tablist')[1]);
 	});
 
 	it('put a dragged tab back when the drag is cancelled', async () => {
@@ -226,6 +349,88 @@ describe('tab groups', () => {
 		await fireEvent.dragEnd(window);
 
 		expect(state.config).toEqual(twoPanes());
+		// Focus goes back to the group the tab is back in.
+		await tick();
+		expect(document.activeElement).toBe(screen.getAllByRole('tablist')[0]);
+	});
+
+	it('leave the focus to an outside field a drop took it to', async () => {
+		renderLayout(twoPanes());
+		const field = document.createElement('input');
+		document.body.append(field);
+		try {
+			await startDrag(screen.getByRole('tab', { name: 'Title of b' }));
+			// An app's own drop target, outside the layout, takes the tab and focuses its field.
+			field.focus();
+			await fireEvent.drop(window, { dataTransfer: dataTransfer() });
+			await tick();
+			await tick();
+			expect(document.activeElement).toBe(field);
+		} finally {
+			field.remove();
+		}
+	});
+
+	it('in a shadow root, focus the tab a drop moved, and leave the focus to an outside field', async () => {
+		const host = document.createElement('div');
+		const field = document.createElement('input');
+		document.body.append(host, field);
+		const shadow = host.attachShadow({ mode: 'open' });
+		try {
+			render(LayoutHarness, {
+				target: shadow as unknown as HTMLElement,
+				props: { config: twoPanes(), ids: ['a', 'b', 'c'] }
+			});
+			const tabsOf = (title: string) =>
+				[...shadow.querySelectorAll<HTMLElement>('[role="tab"]')].find(
+					(tab) => tab.textContent === title
+				)!;
+			const [first, second] = shadow.querySelectorAll<HTMLElement>('[role="tablist"]');
+			const zone = (group: Element, modifier: string) =>
+				group
+					.closest('section')!
+					.querySelector<HTMLElement>(`.horizon-layout-tabgroup__tab-drop-zone--${modifier}`)!;
+
+			// Focus inside the layout: it follows the tab dropped in the second group.
+			first!.focus();
+			await startDrag(tabsOf('Title of b'));
+			await fireEvent.dragOver(zone(second!, '0'), { dataTransfer: dataTransfer() });
+			await fireEvent.drop(zone(second!, '0'), { dataTransfer: dataTransfer() });
+			await fireEvent.dragEnd(window);
+			await tick();
+			expect(shadow.activeElement).toBe(second);
+
+			// An app's own drop target, outside, takes the tab and focuses its field: it keeps it.
+			await startDrag(tabsOf('Title of a'));
+			field.focus();
+			await fireEvent.drop(window, { dataTransfer: dataTransfer() });
+			await tick();
+			await tick();
+			expect(document.activeElement).toBe(field);
+		} finally {
+			host.remove();
+			field.remove();
+		}
+	});
+
+	it('focus the one-tab floating group a cancelled drag puts back', async () => {
+		const rect = { x: 0, y: 0, width: 300, height: 200 };
+		const initial: LayoutConfig = {
+			root: { tabs: ['a'], activeTabIndex: 0 },
+			floating: [{ tabs: ['d'], activeTabIndex: 0, rect }]
+		};
+		const state = renderLayout(structuredClone(initial));
+		await startDrag(screen.getByRole('tab', { name: 'Title of d' }));
+		expect(screen.queryByRole('tab', { name: 'Title of d' })).toBeNull();
+
+		await fireEvent.dragEnd(window);
+		await tick();
+		await tick();
+
+		expect(state.config).toEqual(initial);
+		expect(document.activeElement).toBe(
+			screen.getByRole('tablist', { name: 'Tabs, Title of d shown' })
+		);
 	});
 
 	it('take a dragged tab into a floating group’s tab bar only', async () => {

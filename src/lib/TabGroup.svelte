@@ -7,7 +7,7 @@ Internal to HorizonLayout, rendered by LayoutNode for a docked group and by Floa
 -->
 <script lang="ts">
 	import type { Id, KeyboardControl, LayoutTranslations, TabGroupConfig, View } from './types.ts';
-	import { onDestroy, type Snippet } from 'svelte';
+	import { onDestroy, tick, type Snippet } from 'svelte';
 	import { findControl } from './internal-utils.ts';
 	import type { SvelteMap } from 'svelte/reactivity';
 	import type { DropSide, DropTarget } from './internal-types.ts';
@@ -63,6 +63,8 @@ Internal to HorizonLayout, rendered by LayoutNode for a docked group and by Floa
 
 	// The tab list element, which takes the focus for the group.
 	let tabListElement: HTMLElement | null = null;
+	// Whether the tab list's focus reveals the active tab; not for a drag's.
+	let isRevealOnFocus = true;
 
 	function handleTabBarPointerDown(event: PointerEvent) {
 		if (!onMoveStart || !(event.target instanceof Element)) return;
@@ -89,11 +91,48 @@ Internal to HorizonLayout, rendered by LayoutNode for a docked group and by Floa
 		event.preventDefault();
 		event.stopPropagation();
 		control.action(config, event);
+		void tick().then(revealActiveTab);
 	}
 
-	// The layout sets the drag image and the allowed effect.
+	// Scrolls the strip, when its tabs overflow, so the active tab shows: the focus ring is drawn
+	// on it. A tab wider than the strip shows from its left edge, where its title is. Run when the
+	// tab list takes the focus (a tab moved here, Tab, a press) and after its keys. The active tab
+	// is found from the state, which a press has already changed when the focus comes, before the
+	// DOM shows it. The strip alone scrolls: scrollIntoView would also scroll a pane shorter than
+	// its tab bar; boxes are measured after transforms, scrollLeft before them.
+	function revealActiveTab() {
+		// After a key that took this group away, the component is gone: its props can't be read. A
+		// connected element's root is a document or a shadow root, which getElementById needs.
+		if (!tabListElement?.isConnected) return;
+		const strip = tabListElement.parentElement;
+		// Found in the layout's own tree, which a shadow root may hold.
+		const root = tabListElement.getRootNode() as Document | ShadowRoot;
+		const pill = root.getElementById(tabElementId(config.activeTabIndex))?.parentElement;
+		if (!strip || !pill || pill.parentElement !== strip) return;
+		const stripBox = strip.getBoundingClientRect();
+		const pillBox = pill.getBoundingClientRect();
+		const scale = strip.offsetWidth > 0 ? stripBox.width / strip.offsetWidth : 1;
+		if (pillBox.left < stripBox.left || pillBox.width > stripBox.width) {
+			strip.scrollLeft -= (stripBox.left - pillBox.left) / scale;
+		} else if (pillBox.right > stripBox.right) {
+			strip.scrollLeft += (pillBox.right - stripBox.right) / scale;
+		}
+	}
+
+	// The layout sets the drag image and the allowed effect. A press that becomes a drag makes no
+	// click, so the drag focuses the tab list, as a click would: a drag that ends before it takes
+	// the tab out, with no drop to move the focus, leaves the keys to the tabs (in a floating
+	// group, not to its frame).
 	function startTabDrag(event: DragEvent, tabId: Id) {
 		event.stopPropagation();
+		// Without revealing the active tab: scrolling the strip would move the dragged tab under
+		// the pointer as the drag starts. The focus event fires within focus().
+		isRevealOnFocus = false;
+		try {
+			tabListElement?.focus({ preventScroll: true });
+		} finally {
+			isRevealOnFocus = true;
+		}
 		onStartTabDrag(event, config, tabId);
 	}
 
@@ -183,7 +222,9 @@ Internal to HorizonLayout, rendered by LayoutNode for a docked group and by Floa
 				element in the strip that scrolls them, which a focusable element inside lets the keyboard
 				reach; the tab list keeps the focus for the group and points at the active tab with
 				aria-activedescendant, and the controls are each tab's group of buttons, reached with Tab.
-				Out of sight, not out of reach: the focus ring is drawn on the active tab. -->
+				Out of sight, not out of reach: the focus ring is drawn on the active tab. The strip isn't
+				its containing block (not positioned, transformed or otherwise made one): the block is
+				outside what the strip scrolls, so focusing it never scrolls the strip. -->
 				<div
 					role="tablist"
 					class="{baseClass}__tablist"
@@ -195,9 +236,16 @@ Internal to HorizonLayout, rendered by LayoutNode for a docked group and by Floa
 						? undefined
 						: tabElementId(config.activeTabIndex)}
 					onkeydown={handleKeyDown}
+					onfocus={() => {
+						if (isRevealOnFocus) revealActiveTab();
+					}}
 					{@attach (element) => {
 						tabListElement = element;
-						return registerTabList(config, element);
+						const unregister = registerTabList(config, element);
+						return () => {
+							unregister();
+							if (tabListElement === element) tabListElement = null;
+						};
 					}}
 				></div>
 				{#each config.tabs as tabId, index (tabId)}

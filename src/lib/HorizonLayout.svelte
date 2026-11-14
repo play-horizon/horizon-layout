@@ -34,6 +34,7 @@ lifecycle.
 		areConfigsEquivalent,
 		nodeConfigType,
 		cloneConfig,
+		findTabGroup,
 		validateConfig
 	} from './utils.ts';
 	import {
@@ -748,6 +749,20 @@ lifecycle.
 		focusTabGroup((config.root as SplitConfig).views[isFirst ? 0 : 1] as TabGroupConfig);
 	}
 
+	// The layout's own element, whose focus a drop may move.
+	let rootElement: HTMLElement | null = null;
+
+	// Whether the focus is nowhere (the page's body) or inside the layout. Nowhere is read from
+	// the page, inside from the layout's own tree, which a shadow root may hold: a shadow root's
+	// focused element is null whenever the focus is outside it, not only when it is nowhere.
+	function isFocusOurs(): boolean {
+		if (!rootElement) return false;
+		const page = rootElement.ownerDocument;
+		if (!page.activeElement || page.activeElement === page.body) return true;
+		const focused = (rootElement.getRootNode() as Document | ShadowRoot).activeElement;
+		return focused !== null && rootElement.contains(focused);
+	}
+
 	// The tab list element of every rendered tab group, to move focus to a group.
 	const tabLists = new Map<TabGroupConfig, HTMLElement>();
 
@@ -930,6 +945,12 @@ lifecycle.
 		} else {
 			reconcileConfig(internalConfig!, configBeforeDrag);
 		}
+		// Focus follows the tab, as after a move with the keys: to the group that holds it now, or
+		// to its own after a cancel, which a one-tab group left during the drag. Only while the
+		// focus is still the layout's (or nowhere): an app's own drop target, outside, that took
+		// the tab may have focused one of its fields.
+		const holder = findTabGroup(internalConfig!, tabId);
+		if (holder && isFocusOurs()) focusTabGroup(holder);
 	}
 
 	const POPOUT_BLOCKED_TIMEOUT_MS = 500;
@@ -1096,6 +1117,9 @@ lifecycle.
 <div
 	class={baseClass}
 	style:position="relative"
+	{@attach (element) => {
+		rootElement = element;
+	}}
 	bind:clientWidth={layoutWidth}
 	bind:clientHeight={layoutHeight}
 >

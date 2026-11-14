@@ -188,7 +188,7 @@ describe('floating groups', () => {
 		expect(rectOf(state)).toEqual({ x: 100, y: 50, width: 300, height: 200 });
 	});
 
-	it('don’t move when the press is on a tab, its title or the rest of its pill', async () => {
+	it('don’t move when the press is on a tab or on the rest of its pill', async () => {
 		const state = renderLayout({ root: docked(), floating: [floating('d')] });
 		const title = within(frame('d')).getByRole('tab');
 		const pill = title.parentElement!;
