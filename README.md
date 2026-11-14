@@ -21,7 +21,7 @@ Install the package from npm:
 npm install horizon-layout
 ```
 
-Requires Svelte 5 as a peer dependency.
+Requires Svelte 5.29 or later (the version that added `{@attach}`) as a peer dependency.
 
 ---
 
