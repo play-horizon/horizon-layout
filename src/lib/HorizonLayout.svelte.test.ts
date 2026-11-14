@@ -74,7 +74,7 @@ describe('HorizonLayout', () => {
 
 	it('names the resize handles with the translations', () => {
 		renderLayout(twoPanes());
-		expect(screen.getByRole('slider').getAttribute('aria-label')).toBe('Resize pane 1');
+		expect(screen.getByRole('separator').getAttribute('aria-label')).toBe('Resize pane 1');
 	});
 
 	it('shows a maximized view alone, in a region named by its title', () => {
@@ -110,7 +110,7 @@ describe('HorizonLayout', () => {
 		await fireEvent.keyDown(tabList!, { key: 'ArrowRight' });
 		expect(((state.config.root as SplitConfig).views[0] as TabGroupConfig).activeTabIndex).toBe(1);
 
-		await fireEvent.keyDown(screen.getByRole('slider'), { key: 'ArrowRight' });
+		await fireEvent.keyDown(screen.getByRole('separator'), { key: 'ArrowRight' });
 		expect((state.config.root as SplitConfig).splitPoints).toEqual([0.5]);
 	});
 
@@ -274,7 +274,7 @@ describe('the built-in tab group controls', () => {
 describe('the built-in split handle controls', () => {
 	it('move the handle by 1 %, 10 % with Shift, and to its limits with Home and End', async () => {
 		const state = renderLayout(twoPanes());
-		const handle = screen.getByRole('slider');
+		const handle = screen.getByRole('separator');
 
 		await fireEvent.keyDown(handle, { key: 'ArrowRight' });
 		expect(rootOf(state).splitPoints).toEqual([0.51]);
@@ -354,7 +354,7 @@ describe('translations', () => {
 			props: translations === undefined ? { config, views } : { config, views, translations }
 		});
 		return {
-			separator: screen.getByRole('slider').getAttribute('aria-label'),
+			separator: screen.getByRole('separator').getAttribute('aria-label'),
 			tabLists: screen.getAllByRole('tablist').map((list) => list.getAttribute('aria-label')),
 			floatingPanel: screen.getByRole('dialog').getAttribute('aria-label')
 		};

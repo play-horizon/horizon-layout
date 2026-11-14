@@ -1,7 +1,9 @@
 <!-- @component
 A split: its panes side by side (`horizontal`) or stacked (`vertical`), each a LayoutNode, with a
-resize handle (`role="slider"`) between each two of them, moved with the pointer or the split
-keyboard controls, and an optional ratio label. Internal to HorizonLayout, rendered by LayoutNode.
+resize handle between each two of them, moved with the pointer or the split keyboard controls, and
+an optional ratio label. Each handle is a WAI-ARIA window splitter: a focusable `separator` whose
+value is its position in the split and which controls the pane before it, its primary pane.
+Internal to HorizonLayout, rendered by LayoutNode.
 -->
 <script lang="ts">
 	import type { SvelteMap } from 'svelte/reactivity';
@@ -64,9 +66,20 @@ keyboard controls, and an optional ratio label. Internal to HorizonLayout, rende
 
 	let splitContainer = $state<HTMLElement | null>(null);
 
+	const uid = $props.id();
+
+	/** The id of the pane at `index`, the primary pane of the handle after it. */
+	function paneId(index: number): string {
+		return `${uid}-pane-${index}`;
+	}
+
 	let activeResizer = $state<number | null>(null);
 
 	let isHorizontal = $derived(config.direction === 'horizontal');
+	// A separator's orientation is its own: the handle between panes side by side is vertical.
+	let handleOrientation: SplitConfig['direction'] = $derived(
+		isHorizontal ? 'vertical' : 'horizontal'
+	);
 	let minRatio = $derived(isHorizontal ? minWidthRatio : minHeightRatio);
 
 	let posConstraints = $derived(
@@ -141,6 +154,7 @@ keyboard controls, and an optional ratio label. Internal to HorizonLayout, rende
 	{#each config.views as view, i (view)}
 		{@const splitPoint = config.splitPoints[i]}
 		<div
+			id={paneId(i)}
 			class="{baseClass}-split__pane {baseClass}-split__pane--{config.direction}"
 			style={`flex: ${(splitPoint ?? 1) - (config.splitPoints[i - 1] ?? 0)} 1 0 !important;`}
 		>
@@ -176,14 +190,18 @@ keyboard controls, and an optional ratio label. Internal to HorizonLayout, rende
 					? ` ${baseClass}-split__resizer--active`
 					: ''}"
 			>
+				<!-- A focusable separator is a widget (WAI-ARIA window splitter), which Svelte's a11y
+				checks take for the static separator role. -->
+				<!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
 				<span
 					class="{baseClass}-split__resizer-handle {baseClass}-split__resizer-handle--{config.direction}{isActive
 						? ` ${baseClass}-split__resizer-handle--active`
 						: ''}"
-					role="slider"
+					role="separator"
 					tabindex={0}
 					aria-label={translations.resizePane(i + 1)}
-					aria-orientation={config.direction}
+					aria-controls={paneId(i)}
+					aria-orientation={handleOrientation}
 					aria-valuemin={formatRatioForAria(constraints.min)}
 					aria-valuemax={formatRatioForAria(constraints.max)}
 					aria-valuenow={formatRatioForAria(splitPoint!)}

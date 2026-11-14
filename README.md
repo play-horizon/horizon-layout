@@ -255,7 +255,7 @@ All elements receive BEM classes derived from `baseClass` (`"horizon-layout"` by
 | `.horizon-layout-split__resizer`                                   | Drag handle between panes                                     |
 | `.horizon-layout-split__resizer--horizontal` / `--vertical`        | Direction modifier on resizer container                       |
 | `.horizon-layout-split__resizer--active`                           | Added while the resizer is focused/dragged                    |
-| `.horizon-layout-split__resizer-handle`                            | Focusable slider handle inside the resizer                    |
+| `.horizon-layout-split__resizer-handle`                            | Focusable window splitter (`role="separator"`) in the resizer |
 | `.horizon-layout-split__resizer-handle--horizontal` / `--vertical` | Direction modifier on handle                                  |
 | `.horizon-layout-split__resizer-handle--active`                    | Added while the resizer is focused/dragged                    |
 | `.horizon-layout-split__ratio`                                     | Floating ratio label (visible when `showSplitRatio`)          |
@@ -290,7 +290,14 @@ All elements receive BEM classes derived from `baseClass` (`"horizon-layout"` by
 
 ## Keyboard shortcuts
 
-### Resizer (`role="slider"`)
+### Resizer (`role="separator"`)
+
+Each handle between two panes is a [WAI-ARIA window splitter](https://www.w3.org/WAI/ARIA/apg/patterns/windowsplitter/):
+a focusable `separator` named by `translations.resizePane`, oriented as the handle itself is
+(`vertical` between panes side by side), controlling the pane before it (`aria-controls`), with its
+position in the split as its value (`aria-valuenow`, from `formatRatioForAria`, between
+`aria-valuemin` and `aria-valuemax`, the positions the minimum pane sizes allow, and
+`aria-valuetext` from `formatRatio`).
 
 | Keys          | Action                             |
 | ------------- | ---------------------------------- |
