@@ -136,6 +136,7 @@ describe('floating groups', () => {
 		const layer = frame('d').parentElement!;
 
 		expect((dockedContent as HTMLElement).style.isolation).toBe('isolate');
+		expect(dockedContent!.classList).toContain('horizon-layout__content--docked');
 		expect(layer.style.isolation).toBe('isolate');
 		expect(dockedContent!.compareDocumentPosition(layer)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
 	});

@@ -248,6 +248,12 @@ override them to restyle it:
 | `--hl-floating-shadow`                       | A floating group's shadow                                               |
 | `--hl-radius`                                | The corner radius of tabs, drop hints and floating groups               |
 
+The default theme draws every edge once, so two panes meet on a single 1px line: a docked tab
+group has only its right and bottom borders (the lines to its neighbours, or the layout's own
+edges), and the docked layout's wrapper (`.horizon-layout__content--docked`) the left and top
+ones. A floating group's tab group has its full border. A theme that gives every group a full
+border instead shows two lines side by side where panes meet.
+
 ## CSS classes
 
 All elements receive BEM classes derived from `baseClass` (`"horizon-layout"` by default).
@@ -257,6 +263,7 @@ All elements receive BEM classes derived from `baseClass` (`"horizon-layout"` by
 | `.horizon-layout`                                                  | Root container                                                |
 | `.horizon-layout__content`                                         | Content wrapper (or maximised view wrapper)                   |
 | `.horizon-layout__content--maximized`                              | Added when a view is maximised                                |
+| `.horizon-layout__content--docked`                                 | The docked layout's wrapper (draws its left and top border)   |
 | `.horizon-layout__popout`                                          | Popout window root element                                    |
 | `.horizon-layout__floating`                                        | Layer holding the floating groups, over the docked layout     |
 | `.horizon-layout-floating`                                         | A floating group's frame (holds a `.horizon-layout-tabgroup`) |

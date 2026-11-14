@@ -1112,7 +1112,7 @@ lifecycle.
 			{#if internalConfig.root}
 				<!-- Its own stacking context, so the z-indexes inside it (tab bars, split handles,
 				drop zones) stay under the floating groups, drawn after it. -->
-				<div class="{baseClass}__content" style="isolation: isolate;">
+				<div class="{baseClass}__content {baseClass}__content--docked" style="isolation: isolate;">
 					<HorizonLayoutNode
 						bind:config={internalConfig.root}
 						{views}

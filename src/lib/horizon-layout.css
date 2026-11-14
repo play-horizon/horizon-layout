@@ -56,6 +56,16 @@
 	overflow: hidden;
 }
 
+/* Every edge is drawn once, so two panes meet on a single line: each docked tab group draws its
+   right and bottom borders, which are the lines to its neighbours (or the layout's own right and
+   bottom edges), and the docked layout draws the left and top ones. Two borders side by side
+   would read as a double line at fractional device pixel ratios. */
+.horizon-layout__content--docked {
+	box-sizing: border-box;
+	border-top: 1px solid var(--hl-border);
+	border-left: 1px solid var(--hl-border);
+}
+
 .horizon-layout__content--maximized {
 	animation: hl-fade-in 80ms ease;
 }
@@ -198,7 +208,8 @@
 	min-height: 0;
 	overflow: hidden;
 	box-sizing: border-box;
-	border: 1px solid var(--hl-border);
+	border-right: 1px solid var(--hl-border);
+	border-bottom: 1px solid var(--hl-border);
 	background: var(--hl-card);
 }
 
@@ -449,6 +460,7 @@
 }
 
 .horizon-layout-floating > .horizon-layout-tabgroup {
+	border: 1px solid var(--hl-border);
 	border-radius: inherit;
 }
 
