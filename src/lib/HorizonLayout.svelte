@@ -90,7 +90,12 @@ groups they make, focus following a moved tab, and the popout windows' lifecycle
 		translations?: Partial<LayoutTranslations>;
 		/** Snippets rendered in every tab-group's toolbar (e.g. a maximise button). */
 		tabgroupControls?: Snippet<[Id]>[];
-		/** Prevent the user from dragging split dividers. */
+		/**
+		 * Stop the pointer from resizing splits: their handles no longer follow a drag. It stops
+		 * the pointer only: the handles stay focusable and the split keyboard controls still move
+		 * them. To stop the keyboard too, pass `keyboardControls` with the `splitControls` you
+		 * want kept (an empty array for none).
+		 */
 		disableResizeSplits?: boolean;
 		/** Prevent drag-and-drop tab rearrangement. */
 		disableDragAndDrop?: boolean;
