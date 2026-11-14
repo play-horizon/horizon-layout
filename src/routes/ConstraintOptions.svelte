@@ -1,17 +1,21 @@
+<!--
+@component
+The split constraints of a HorizonLayout: the minimum pane width and height and the maximum split
+depth. A minimum some split can't satisfy is refused with a notice; an accepted one moves the
+config's split points back into range, so the layout never shows its error state.
+-->
 <script lang="ts">
 	import type { LayoutConfig, NodeConfig, SplitConfig } from '#lib/types.js';
 	import { nodeConfigType } from '#lib/utils.js';
 	import { MAX_DEPTH, MAX_MIN_RATIO, MIN_DEPTH } from './constraints.js';
 
-	// Split constraint fields for a HorizonLayout instance, without the
-	// interaction toggles — lets layouts place interaction and constraints
-	// in separate columns.
 	let {
 		config = $bindable(),
 		minWidthRatio = $bindable(),
 		minHeightRatio = $bindable(),
 		maxDepth = $bindable()
 	}: {
+		/** The layout whose split points move back into range, in place, when a minimum grows. */
 		config: LayoutConfig;
 		minWidthRatio: number;
 		minHeightRatio: number;

@@ -1,10 +1,12 @@
+<!--
+@component
+The interaction toggles of a HorizonLayout (split ratio and its format, resizing, drag and drop,
+tab bars, validation), each bound to the prop of the same name.
+-->
 <script lang="ts">
 	import { ratioFormats } from './ratio-formats.js';
 	import type { RatioFormat } from './ratio-formats.js';
 
-	// Interaction toggles for a HorizonLayout instance, without the constraint
-	// fields — lets layouts place interaction and constraints in separate
-	// columns.
 	let {
 		showSplitRatio = $bindable(),
 		disableResizeSplits = $bindable(),

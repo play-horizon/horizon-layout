@@ -1,3 +1,9 @@
+/**
+ * The ways the demo can display a split ratio, chosen in the sidebar.
+ * @module
+ */
+
+/** The id of a ratio format. */
 export type RatioFormat = 'percent' | 'percentShort' | 'fraction';
 
 /** Ways the demo can display split ratios, for the `formatRatio` props. */

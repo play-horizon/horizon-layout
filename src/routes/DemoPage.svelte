@@ -1,4 +1,13 @@
+<!--
+@component
+The content of one page of the main layout, chosen by `kind`; the `config` page shows the live
+layout config.
+-->
 <script lang="ts" module>
+	/**
+	 * What a page shows: an intro, usage code, a file tree, the live config, the floating panel's
+	 * guide, or nothing.
+	 */
 	export type PageKind = 'intro' | 'usage' | 'files' | 'config' | 'floating' | 'blank';
 </script>
 

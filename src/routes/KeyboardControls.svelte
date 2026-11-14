@@ -1,7 +1,12 @@
+<!--
+@component
+The sidebar's keyboard-binding editor: for each action, a modifier and a key. It shows `bindings`
+and reports each edit through `onChanged`, leaving the bindings to its parent.
+-->
 <script lang="ts" module>
 	import type { KeyboardShortcut, Modifier } from '#lib/types.js';
 
-	// Which internal action the shortcut maps onto.
+	/** An action of the demo's keyboard controls (`keyboard-actions.ts`), bound to one shortcut. */
 	export type ActionId =
 		| 'deselect'
 		| 'cycleNext'
@@ -19,6 +24,7 @@
 		| 'resizeMin'
 		| 'resizeMax';
 
+	/** The name of each action, as the editor shows it. */
 	export const actionLabels: Record<ActionId, string> = {
 		deselect: 'Deselect',
 		cycleNext: 'Select next tab',
@@ -37,6 +43,7 @@
 		resizeMax: 'Resize pane to maximum'
 	};
 
+	/** The modifiers a binding can have, the empty string being none. */
 	export const modifiers: (Modifier | '')[] = [
 		'',
 		'ctrl',
@@ -58,6 +65,7 @@
 	}: {
 		/** Current bindings per action (first shortcut only). */
 		bindings: Partial<Record<ActionId, KeyboardShortcut>>;
+		/** Called with the edited binding when its modifier or key changes. */
 		onChanged: (action: ActionId, binding: Binding) => void;
 	} = $props();
 

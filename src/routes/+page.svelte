@@ -1,3 +1,10 @@
+<!--
+@component
+The demo and documentation site of horizon-layout, prerendered for GitHub Pages: a sidebar of
+options (theme, persistence, pages, layout props, keyboard bindings) beside the main HorizonLayout,
+whose pages (`pages.ts`) show the library's docs and a nested layout. Persistence, the keyboard
+actions and the popout bookkeeping live in their own modules.
+-->
 <script lang="ts">
 	import HorizonLayout from '#lib/HorizonLayout.svelte';
 	import type { Id, KeyboardShortcut, LayoutConfig, Modifier, View } from '#lib/types.js';

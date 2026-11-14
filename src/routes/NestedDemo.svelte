@@ -1,3 +1,9 @@
+<!--
+@component
+A second HorizonLayout inside a page of the main one, with its own theme and options in its own
+sidebar. Like the main page, its sidebar moves above the layout when space runs out, but measured
+on this pane's own box (a container query) rather than the viewport, since the pane can be any size.
+-->
 <script lang="ts" module>
 	import type { Id, LayoutConfig, View } from '#lib/types.js';
 	import { SvelteMap } from 'svelte/reactivity';
@@ -10,9 +16,6 @@
 </script>
 
 <script lang="ts">
-	// Like the main demo page, but responsive to *this tab's own box* rather
-	// than the viewport: the nested layout lives inside a pane that can be any
-	// size, so we use a container query instead of an orientation media query.
 	let nestedConfig: LayoutConfig = $state({
 		root: {
 			direction: 'horizontal',

@@ -1,11 +1,14 @@
+<!--
+@component
+The main layout's options in the sidebar: the interaction toggles (`InteractionOptions`) followed by
+the split constraints (`ConstraintOptions`). The nested layout places the two in separate columns.
+-->
 <script lang="ts">
 	import type { LayoutConfig } from '#lib/types.js';
 	import InteractionOptions from './InteractionOptions.svelte';
 	import ConstraintOptions from './ConstraintOptions.svelte';
 	import type { RatioFormat } from './ratio-formats.js';
 
-	// Shared config sidebar for a HorizonLayout instance: interaction toggles,
-	// split constraints and the split-ratio display format.
 	let {
 		config = $bindable(),
 		showSplitRatio = $bindable(),
