@@ -35,6 +35,11 @@
 	import LayoutOptions from './LayoutOptions.svelte';
 	import { ratioFormats, type RatioFormat } from './ratio-formats.js';
 	import { translations } from './translations.js';
+	import IconButton from './IconButton.svelte';
+	import CloseIcon from '~icons/mingcute/close-line';
+	import FloatIcon from '~icons/mingcute/miniplayer-line';
+	import MaximizeIcon from '~icons/mingcute/fullscreen-line';
+	import PopoutIcon from '~icons/mingcute/external-link-line';
 
 	// ------------------------------------------------------------------ pages
 
@@ -724,43 +729,26 @@
 
 {#snippet floatButton(viewId: Id)}
 	{#if !config.floating?.some((group) => group.tabs.length === 1 && group.tabs[0] === viewId)}
-		<button class="ctl" onclick={() => float(viewId)} title="Float" aria-label="Float">
-			<svg viewBox="0 0 16 16" aria-hidden="true">
-				<path d="M2.5 4.5h7v7h-7zM6.5 2.5h7v7" />
-			</svg>
-		</button>
+		<IconButton icon={FloatIcon} label="Float" onclick={() => float(viewId)} />
 	{/if}
 {/snippet}
 
 {#snippet popoutButton(viewId: Id)}
-	<button class="ctl" onclick={() => popout(viewId)} title="Pop out" aria-label="Pop out">
-		<svg viewBox="0 0 16 16" aria-hidden="true">
-			<path
-				d="M9.5 2.5h4v4M13.5 2.5 8 8M11.5 9.5v3a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h3"
-			/>
-		</svg>
-	</button>
+	<IconButton icon={PopoutIcon} label="Pop out" onclick={() => popout(viewId)} />
 {/snippet}
 
 {#snippet closeButton(viewId: Id)}
 	{#if !pages.find((p) => p.id === viewId)?.persistent}
-		<button class="ctl" onclick={() => removePage(viewId)} title="Close" aria-label="Close">
-			<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8" /></svg>
-		</button>
+		<IconButton icon={CloseIcon} label="Close" onclick={() => removePage(viewId)} />
 	{/if}
 {/snippet}
 
 {#snippet maximizeButton(activeViewId: Id)}
-	<button
-		class="ctl"
+	<IconButton
+		icon={MaximizeIcon}
+		label="Maximize"
 		onclick={() => (config.maximizedView = activeViewId)}
-		title="Maximize"
-		aria-label="Maximize"
-	>
-		<svg viewBox="0 0 16 16" aria-hidden="true">
-			<path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10" />
-		</svg>
-	</button>
+	/>
 {/snippet}
 
 <div class="app {themeClassMap[mainTheme]}">
@@ -805,14 +793,11 @@
 						<li>
 							<span class="page-list__title">{page.title}</span>
 							{#if !page.persistent}
-								<button
-									class="ctl"
+								<IconButton
+									icon={CloseIcon}
+									label="Remove {page.title}"
 									onclick={() => removePage(page.id)}
-									title="Remove"
-									aria-label="Remove {page.title}"
-								>
-									<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8" /></svg>
-								</button>
+								/>
 							{/if}
 						</li>
 					{/each}
@@ -1054,36 +1039,6 @@
 		align-items: center;
 		gap: 0.45rem;
 		font-size: 0.75rem;
-	}
-
-	/* Icon buttons in tab bars and the page list. */
-	.ctl {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 1.25rem;
-		height: 1.25rem;
-		padding: 0;
-		border: none;
-		border-radius: calc(var(--hl-radius) - 0.125rem);
-		background: transparent;
-		color: var(--hl-muted-foreground);
-		cursor: pointer;
-	}
-
-	.ctl:hover {
-		background: var(--hl-accent);
-		color: var(--hl-foreground);
-	}
-
-	.ctl svg {
-		width: 0.75rem;
-		height: 0.75rem;
-		fill: none;
-		stroke: currentColor;
-		stroke-width: 1.5;
-		stroke-linecap: round;
-		stroke-linejoin: round;
 	}
 
 	/* ------------------------------------------------------------- layout */
