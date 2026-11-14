@@ -1,3 +1,10 @@
+/**
+ * The public helpers that work on a `LayoutConfig`: parsing an unknown value into one, validating
+ * it against the views, cloning and comparing configs, walking the docked tree, and changing a
+ * config in place (finding, removing and floating views, removing emptied tab groups).
+ * HorizonLayout uses them too; `index.ts` re-exports them all.
+ * @module
+ */
 import { SvelteMap } from 'svelte/reactivity';
 import {
 	DEFAULT_MIN_WIDTH_RATIO,
@@ -15,8 +22,17 @@ import type {
 	TabGroupConfig
 } from './types.ts';
 
-/// Remove a tab group that has become empty: a floating group leaves `config.floating`; a docked
-/// one leaves its split, then any resulting single-child splits collapse up the tree.
+/**
+ * Removes `tabGroup` from `config`, in place, when it has no tabs left (it does nothing
+ * otherwise): a floating group leaves `config.floating` (which goes when it is left empty); a
+ * docked one leaves its split, whose split point next to it goes too, then each split left with
+ * a single child is replaced by that child, up the tree; the last docked group clears
+ * `config.root`. `nodeParentMap` is the map `buildNodeParentMap` built for `config.root`.
+ *
+ * @example
+ * group.tabs.splice(group.tabs.indexOf('docs'), 1);
+ * simplifyTabGroup(group, buildNodeParentMap(config.root), config);
+ */
 export function simplifyTabGroup(
 	tabGroup: TabGroupConfig,
 	nodeParentMap: ReadonlyMap<NodeConfig, ParentEntry>,
@@ -40,8 +56,7 @@ export function simplifyTabGroup(
 	parent.parent.views.splice(parent.index, 1);
 	parent.parent.splitPoints.splice(Math.min(parent.index, parent.parent.splitPoints.length - 1), 1);
 
-	/// Remove a split that has become a single view, then collapse any resulting
-	/// single-child splits up the tree.
+	// Replaces a split left with a single view by that view, then does the same for its parent.
 	const simplifySplit = (split: SplitConfig) => {
 		if (split.views.length > 1) return;
 		const only = split.views[0]!;
@@ -57,7 +72,7 @@ export function simplifyTabGroup(
 	simplifySplit(parent.parent);
 }
 
-/// returns 'split' if the config is a SplitConfig, or 'tabGroup' if it's a TabGroupConfig
+/** Returns `'split'` for a `SplitConfig` and `'tabGroup'` for a `TabGroupConfig`. */
 export function nodeConfigType(config: NodeConfig): 'split' | 'tabGroup' {
 	if ('splitPoints' in config) {
 		return 'split';
@@ -66,6 +81,11 @@ export function nodeConfigType(config: NodeConfig): 'split' | 'tabGroup' {
 	}
 }
 
+/**
+ * Returns a map from every node of the docked tree under `root`, `root` excepted, to the split
+ * holding it and its index there. It reflects the tree when it is built: rebuild it after the
+ * tree changes.
+ */
 export function buildNodeParentMap(root: NodeConfig): SvelteMap<NodeConfig, ParentEntry> {
 	const map = new SvelteMap<NodeConfig, ParentEntry>();
 
@@ -95,7 +115,10 @@ function areTabGroupConfigsEquivalent(
 	return true;
 }
 
-/// returns true if the two configs are equivalent (i.e. they represent the same layout), false otherwise
+/**
+ * Returns whether two configs describe the same layout: the same tree, floating groups (in the
+ * same order, with the same rect), maximized view, and popouts (in any order).
+ */
 export function areConfigsEquivalent(config1: LayoutConfig, config2: LayoutConfig): boolean {
 	if (config1.maximizedView !== config2.maximizedView) return false;
 	if ((config1.root === undefined) !== (config2.root === undefined)) return false;
@@ -137,24 +160,33 @@ export function areConfigsEquivalent(config1: LayoutConfig, config2: LayoutConfi
 		return true;
 	};
 
-	// we can only check config1 because of the early return
-	// if ((config1.root === undefined) !== (config2.root === undefined)) return false;
+	// Both roots are absent or both present: that was checked first.
 	if (config1.root === undefined) return true;
 
 	return areNodeConfigsEquivalent(config1.root, config2.root!);
 }
 
+/** The thresholds `validateConfig` checks split points with. */
 export interface ValidateConfigOptions {
-	/** Minimum allowed pane width as a fraction of its split container. Default: DEFAULT_MIN_WIDTH_RATIO */
+	/** Minimum pane width, as a fraction of its horizontal split's width. Default: 0.1. */
 	minWidthRatio?: number;
-	/** Minimum allowed pane height as a fraction of its split container. Default: DEFAULT_MIN_HEIGHT_RATIO */
+	/** Minimum pane height, as a fraction of its vertical split's height. Default: 0.2. */
 	minHeightRatio?: number;
 }
 
-/// Validates a LayoutConfig against a views map.
-/// Throws an Error if the config is invalid.
-/// Pass the same minWidthRatio / minHeightRatio you use for HorizonLayout so that
-/// split-point constraints are checked with the same thresholds.
+/**
+ * Checks that `config` can be shown with `views`: every id names a view, no view is shown twice,
+ * every `activeTabIndex` is the index of a tab, every split has two views or more and split
+ * points that leave each pane its minimum ratio, every floating rect has finite numbers and a
+ * positive size, and the maximized view isn't in a popout. Pass the `minWidthRatio` and
+ * `minHeightRatio` given to HorizonLayout, so split points are checked with its thresholds.
+ *
+ * @throws Error naming the first faulty field by its path, for example
+ * `config.root.views[1].activeTabIndex: expected an integer from 0 to 2, the index of a tab`.
+ *
+ * @example
+ * validateConfig(config, views, { minWidthRatio: 0.15 });
+ */
 export function validateConfig<V>(
 	config: LayoutConfig,
 	views: ReadonlyMap<Id, V>,
@@ -236,6 +268,8 @@ export function validateConfig<V>(
 	if (config.root) validateNode(config.root, 'config.root');
 }
 
+// Any of a split's fields makes `object` a split, so a malformed split reports what it lacks
+// rather than being read as a tab group without tabs.
 function parseNodeConfig(object: unknown, path: string): NodeConfig {
 	if (typeof object !== 'object' || object === null) throw new Error(`${path}: expected an object`);
 	const isSplit = 'direction' in object || 'views' in object || 'splitPoints' in object;
@@ -299,8 +333,17 @@ function parseId(object: unknown, path: string): Id {
 	return object;
 }
 
-/// Parses an unknown value (e.g. from JSON.parse) into a LayoutConfig,
-/// throwing an error if the value does not match the expected shape.
+/**
+ * Parses an unknown value (for example from `JSON.parse`) into a new `LayoutConfig`, checking its
+ * shape only (run `validateConfig` for the rest). Unknown fields are dropped, as are empty
+ * `floating` and `popouts` arrays.
+ *
+ * @throws Error naming the first faulty field by its path, for example
+ * `config.root.views[0].tabs: expected a non-empty array`.
+ *
+ * @example
+ * const config = parseLayoutConfig(JSON.parse(localStorage.getItem('layout') ?? '{}'));
+ */
 export function parseLayoutConfig(object: unknown): LayoutConfig {
 	if (typeof object !== 'object' || object === null) throw new Error('config: expected an object');
 	const { root, floating, maximizedView, popouts } = object as Record<string, unknown>;
@@ -324,7 +367,10 @@ export function parseLayoutConfig(object: unknown): LayoutConfig {
 	return result;
 }
 
-/// returns a deep clone of the given config
+/**
+ * Returns a deep copy of `config` that shares no object with it, without empty `floating` and
+ * `popouts` arrays.
+ */
 export function cloneConfig(config: LayoutConfig): LayoutConfig {
 	const cloneNodeConfig = (node: NodeConfig): NodeConfig => {
 		return nodeConfigType(node) === 'split'
@@ -362,13 +408,14 @@ export function cloneConfig(config: LayoutConfig): LayoutConfig {
 	};
 }
 
-/// Returns the tab group, docked or floating, that has the view `id` as one of its tabs, or
-/// undefined when the view isn't in a tab group (absent, or only in `popouts`).
-///
-/// ```ts
-/// const group = findTabGroup(config, 'docs');
-/// if (group) group.activeTabIndex = group.tabs.indexOf('docs');
-/// ```
+/**
+ * Returns the tab group, docked or floating, that has the view `id` as one of its tabs, or
+ * undefined when the view isn't in a tab group (absent, or only in `popouts`).
+ *
+ * @example
+ * const group = findTabGroup(config, 'docs');
+ * if (group) group.activeTabIndex = group.tabs.indexOf('docs');
+ */
 export function findTabGroup(config: LayoutConfig, id: Id): TabGroupConfig | undefined {
 	const walk = (node: NodeConfig): TabGroupConfig | undefined => {
 		if (nodeConfigType(node) === 'tabGroup') {
@@ -385,9 +432,14 @@ export function findTabGroup(config: LayoutConfig, id: Id): TabGroupConfig | und
 	);
 }
 
-/// Takes the view `id` out of the layout, in place: out of its tab group (a group left empty is
-/// removed, and the splits it leaves collapse), out of `popouts`, and out of `maximizedView`.
-/// Does nothing for a view the layout doesn't show.
+/**
+ * Takes the view `id` out of the layout, in place: out of its tab group (a group left empty is
+ * removed, and the splits it leaves collapse), out of `popouts`, and out of `maximizedView`.
+ * Does nothing for a view the layout doesn't show.
+ *
+ * @example
+ * removeView(config, 'docs');
+ */
 export function removeView(config: LayoutConfig, id: Id): void {
 	const group = findTabGroup(config, id);
 	if (group) {
@@ -405,12 +457,13 @@ export function removeView(config: LayoutConfig, id: Id): void {
 	if (config.maximizedView === id) config.maximizedView = undefined;
 }
 
-/// Floats the view `id` in a group of its own at `rect`, on top of the other floating groups,
-/// in place: the view first leaves wherever it was (see `removeView`).
-///
-/// ```ts
-/// floatView(config, 'docs', { x: 80, y: 60, width: 420, height: 520 });
-/// ```
+/**
+ * Floats the view `id` in a group of its own at `rect`, on top of the other floating groups,
+ * in place: the view first leaves wherever it was (see `removeView`).
+ *
+ * @example
+ * floatView(config, 'docs', { x: 80, y: 60, width: 420, height: 520 });
+ */
 export function floatView(config: LayoutConfig, id: Id, rect: FloatingRect): void {
 	removeView(config, id);
 	const group: FloatingGroupConfig = { tabs: [id], activeTabIndex: 0, rect: { ...rect } };
