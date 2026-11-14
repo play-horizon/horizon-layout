@@ -76,7 +76,9 @@ describe('validateConfig', () => {
 
 	it('rejects an unknown tab id', () => {
 		const config: LayoutConfig = { root: { tabs: ['missing'], activeTabIndex: 0 } };
-		expect(() => validateConfig(config, views)).toThrow('unknown tab id "missing"');
+		expect(() => validateConfig(config, views)).toThrow(
+			'config.root.tabs[0]: unknown view id "missing"'
+		);
 	});
 
 	it('rejects a tab that appears twice', () => {
@@ -90,49 +92,57 @@ describe('validateConfig', () => {
 				splitPoints: [0.5]
 			}
 		};
-		expect(() => validateConfig(config, views)).toThrow('duplicate tab id "a"');
+		expect(() => validateConfig(config, views)).toThrow(
+			'config.root.views[1].tabs[0]: view "a" is shown more than once'
+		);
 	});
 
 	it('rejects an out-of-range activeTabIndex', () => {
 		const config: LayoutConfig = { root: { tabs: ['a'], activeTabIndex: 1 } };
-		expect(() => validateConfig(config, views)).toThrow('activeTabIndex out of range');
+		expect(() => validateConfig(config, views)).toThrow('config.root.activeTabIndex: out of range');
 	});
 
 	it('rejects a split whose splitPoints do not match its views', () => {
 		const config = threePaneConfig();
 		(config.root as SplitConfig).splitPoints = [0.3, 0.6];
 		expect(() => validateConfig(config, views)).toThrow(
-			'splitPoints.length must equal views.length - 1'
+			'config.root.splitPoints: expected one split point per gap between views'
 		);
 	});
 
 	it('rejects split points closer than the minimum ratio', () => {
 		const config = threePaneConfig();
 		(config.root as SplitConfig).splitPoints = [0.05];
-		expect(() => validateConfig(config, views)).toThrow('splitPoints violate minRatio constraints');
+		expect(() => validateConfig(config, views)).toThrow(
+			'config.root.splitPoints[0]: leaves a pane smaller than the minimum ratio'
+		);
 		expect(() => validateConfig(config, views, { minWidthRatio: 0.01 })).not.toThrow();
 	});
 
 	it('rejects split points closer than the minimum ratio to the far edge', () => {
 		const config = threePaneConfig();
 		(config.root as SplitConfig).splitPoints = [0.95];
-		expect(() => validateConfig(config, views)).toThrow('splitPoints violate minRatio constraints');
+		expect(() => validateConfig(config, views)).toThrow(
+			'config.root.splitPoints[0]: leaves a pane smaller than the minimum ratio'
+		);
 	});
 
 	it('checks vertical splits against minHeightRatio', () => {
 		const config = threePaneConfig();
 		const inner = (config.root as SplitConfig).views[1] as SplitConfig;
 		inner.splitPoints = [0.15];
-		expect(() => validateConfig(config, views)).toThrow('splitPoints violate minRatio constraints');
+		expect(() => validateConfig(config, views)).toThrow(
+			'config.root.views[1].splitPoints[0]: leaves a pane smaller than the minimum ratio'
+		);
 		expect(() => validateConfig(config, views, { minHeightRatio: 0.1 })).not.toThrow();
 	});
 
 	it.each([
-		[[0.3, 0.6], true],
-		[[0.2, 0.3], true],
-		[[0.4, 0.45], false],
-		[[0.6, 0.3], false]
-	])('checks consecutive split points %o', (splitPoints, valid) => {
+		[[0.3, 0.6], null],
+		[[0.2, 0.3], null],
+		[[0.4, 0.45], 1],
+		[[0.6, 0.3], 1]
+	])('checks consecutive split points %o', (splitPoints, badIndex) => {
 		const config: LayoutConfig = {
 			root: {
 				direction: 'horizontal',
@@ -144,8 +154,11 @@ describe('validateConfig', () => {
 				splitPoints: splitPoints as [number, ...number[]]
 			}
 		};
-		if (valid) expect(() => validateConfig(config, views)).not.toThrow();
-		else expect(() => validateConfig(config, views)).toThrow('splitPoints violate minRatio');
+		if (badIndex === null) expect(() => validateConfig(config, views)).not.toThrow();
+		else
+			expect(() => validateConfig(config, views)).toThrow(
+				`config.root.splitPoints[${badIndex}]: leaves a pane smaller than the minimum ratio`
+			);
 	});
 
 	it('accepts a split point clamped to a minRatio with more than 4 decimals', () => {
@@ -156,19 +169,23 @@ describe('validateConfig', () => {
 
 	it('rejects a negative activeTabIndex', () => {
 		const config: LayoutConfig = { root: { tabs: ['a'], activeTabIndex: -1 } };
-		expect(() => validateConfig(config, views)).toThrow('activeTabIndex out of range');
+		expect(() => validateConfig(config, views)).toThrow('config.root.activeTabIndex: out of range');
 	});
 
 	it('rejects a tab that appears twice in the same group', () => {
 		const config: LayoutConfig = { root: { tabs: ['a', 'a'], activeTabIndex: 0 } };
-		expect(() => validateConfig(config, views)).toThrow('duplicate tab id "a"');
+		expect(() => validateConfig(config, views)).toThrow(
+			'config.root.tabs[1]: view "a" is shown more than once'
+		);
 	});
 
 	it('rejects an unknown tab id in a nested group', () => {
 		const config = threePaneConfig();
 		const inner = (config.root as SplitConfig).views[1] as SplitConfig;
 		(inner.views[1] as TabGroupConfig).tabs = ['missing'];
-		expect(() => validateConfig(config, views)).toThrow('unknown tab id "missing"');
+		expect(() => validateConfig(config, views)).toThrow(
+			'config.root.views[1].views[1].tabs[0]: unknown view id "missing"'
+		);
 	});
 
 	it('accepts known maximizedView and popout ids', () => {
@@ -179,20 +196,24 @@ describe('validateConfig', () => {
 
 	it('rejects a view shown in two places', () => {
 		expect(() => validateConfig({ ...threePaneConfig(), popouts: ['b'] }, views)).toThrow(
-			'duplicate tab id "b"'
+			'config.root.views[1].views[0].tabs[0]: view "b" is shown more than once'
 		);
-		expect(() => validateConfig({ popouts: ['a', 'a'] }, views)).toThrow('duplicate popout id "a"');
+		expect(() => validateConfig({ popouts: ['a', 'a'] }, views)).toThrow(
+			'config.popouts[1]: view "a" is shown more than once'
+		);
 		const floating = { tabs: ['a'], activeTabIndex: 0, rect } as FloatingGroupConfig;
 		expect(() => validateConfig({ ...threePaneConfig(), floating: [floating] }, views)).toThrow(
-			'duplicate tab id "a"'
+			'config.root.views[0].tabs[0]: view "a" is shown more than once'
 		);
 	});
 
 	it('rejects unknown maximizedView and popout ids', () => {
 		expect(() => validateConfig({ maximizedView: 'x' }, views)).toThrow(
-			'unknown maximizedView id "x"'
+			'config.maximizedView: unknown view id "x"'
 		);
-		expect(() => validateConfig({ popouts: ['y'] }, views)).toThrow('unknown popout id "y"');
+		expect(() => validateConfig({ popouts: ['a', 'y'] }, views)).toThrow(
+			'config.popouts[1]: unknown view id "y"'
+		);
 	});
 
 	it('accepts ids whose view value is falsy', () => {
@@ -220,11 +241,15 @@ describe('validateConfig with floating groups', () => {
 	it('rejects a floating group with a bad tab list or rect', () => {
 		const bad = (group: object) => () =>
 			validateConfig({ floating: [group as FloatingGroupConfig] }, views);
-		expect(bad({ tabs: ['a'], activeTabIndex: 1, rect })).toThrow('activeTabIndex out of range');
-		expect(bad({ tabs: ['x'], activeTabIndex: 0, rect })).toThrow('unknown tab id "x"');
+		expect(bad({ tabs: ['a'], activeTabIndex: 1, rect })).toThrow(
+			'config.floating[0].activeTabIndex: out of range'
+		);
+		expect(bad({ tabs: ['x'], activeTabIndex: 0, rect })).toThrow(
+			'config.floating[0].tabs[0]: unknown view id "x"'
+		);
 		for (const broken of [{ width: 0 }, { height: -1 }, { x: Number.NaN }, { y: Infinity }]) {
 			expect(bad({ tabs: ['a'], activeTabIndex: 0, rect: { ...rect, ...broken } })).toThrow(
-				'a floating rect needs finite numbers and a positive width and height'
+				'config.floating[0].rect: expected finite numbers and a positive width and height'
 			);
 		}
 	});

@@ -164,60 +164,64 @@ export function validateConfig<V>(
 		options;
 
 	if (config.maximizedView && !views.has(config.maximizedView)) {
-		throw new Error(`unknown maximizedView id "${config.maximizedView}"`);
+		throw new Error(`config.maximizedView: unknown view id "${config.maximizedView}"`);
 	}
 
 	// A view is shown in one place: one tab, docked or floating, or one popout.
 	const seenIds = new Set<Id>();
 
-	for (const id of config.popouts ?? []) {
-		if (!views.has(id)) throw new Error(`unknown popout id "${id}"`);
-		if (seenIds.has(id)) throw new Error(`duplicate popout id "${id}"`);
+	for (const [i, id] of (config.popouts ?? []).entries()) {
+		if (!views.has(id)) throw new Error(`config.popouts[${i}]: unknown view id "${id}"`);
+		if (seenIds.has(id))
+			throw new Error(`config.popouts[${i}]: view "${id}" is shown more than once`);
 		seenIds.add(id);
 	}
 
-	const validateTabGroup = (tabGroup: TabGroupConfig) => {
+	const validateTabGroup = (tabGroup: TabGroupConfig, path: string) => {
 		if (tabGroup.activeTabIndex < 0 || tabGroup.activeTabIndex >= tabGroup.tabs.length) {
-			throw new Error('activeTabIndex out of range');
+			throw new Error(`${path}.activeTabIndex: out of range`);
 		}
-		for (const id of tabGroup.tabs) {
-			if (!views.has(id)) throw new Error(`unknown tab id "${id}"`);
-			if (seenIds.has(id)) throw new Error(`duplicate tab id "${id}"`);
+		for (const [i, id] of tabGroup.tabs.entries()) {
+			if (!views.has(id)) throw new Error(`${path}.tabs[${i}]: unknown view id "${id}"`);
+			if (seenIds.has(id))
+				throw new Error(`${path}.tabs[${i}]: view "${id}" is shown more than once`);
 			seenIds.add(id);
 		}
 	};
 
-	const validateSplit = (split: SplitConfig) => {
+	const validateSplit = (split: SplitConfig, path: string) => {
 		if (split.splitPoints.length !== split.views.length - 1) {
-			throw new Error('splitPoints.length must equal views.length - 1');
+			throw new Error(`${path}.splitPoints: expected one split point per gap between views`);
 		}
 		const minRatio = split.direction === 'horizontal' ? minWidthRatio : minHeightRatio;
 		for (let i = 0; i < split.splitPoints.length; i++) {
 			const point = roundSplitPoint(split.splitPoints[i]!);
 			const prev = split.splitPoints[i - 1] ?? 0;
 			if (point < roundSplitPoint(prev + minRatio) || point > roundSplitPoint(1 - minRatio)) {
-				throw new Error('splitPoints violate minRatio constraints');
+				throw new Error(`${path}.splitPoints[${i}]: leaves a pane smaller than the minimum ratio`);
 			}
 		}
-		for (const child of split.views) {
-			validateNode(child);
+		for (const [i, child] of split.views.entries()) {
+			validateNode(child, `${path}.views[${i}]`);
 		}
 	};
 
-	const validateNode = (node: NodeConfig) =>
+	const validateNode = (node: NodeConfig, path: string) =>
 		nodeConfigType(node) === 'split'
-			? validateSplit(node as SplitConfig)
-			: validateTabGroup(node as TabGroupConfig);
+			? validateSplit(node as SplitConfig, path)
+			: validateTabGroup(node as TabGroupConfig, path);
 
-	for (const group of config.floating ?? []) {
-		validateTabGroup(group);
+	for (const [i, group] of (config.floating ?? []).entries()) {
+		validateTabGroup(group, `config.floating[${i}]`);
 		const { x, y, width, height } = group.rect;
 		if (![x, y, width, height].every(Number.isFinite) || width <= 0 || height <= 0) {
-			throw new Error('a floating rect needs finite numbers and a positive width and height');
+			throw new Error(
+				`config.floating[${i}].rect: expected finite numbers and a positive width and height`
+			);
 		}
 	}
 
-	if (config.root) validateNode(config.root);
+	if (config.root) validateNode(config.root, 'config.root');
 }
 
 function parseNodeConfig(object: unknown, path: string): NodeConfig {
