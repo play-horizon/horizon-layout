@@ -179,7 +179,9 @@ export interface ValidateConfigOptions {
  * every `activeTabIndex` is the index of a tab, every split has two views or more and split
  * points that leave each pane its minimum ratio, every floating rect has finite numbers and a
  * positive size, and the maximized view isn't in a popout. Pass the `minWidthRatio` and
- * `minHeightRatio` given to HorizonLayout, so split points are checked with its thresholds.
+ * `minHeightRatio` given to HorizonLayout, so split points are checked with its thresholds; like
+ * HorizonLayout, it takes them, and the split points, at the 4-decimal precision split points are
+ * stored with.
  *
  * @throws Error naming the first faulty field by its path, for example
  * `config.root.views[1].activeTabIndex: expected an integer from 0 to 2, the index of a tab`.
@@ -192,8 +194,9 @@ export function validateConfig<V>(
 	views: ReadonlyMap<Id, V>,
 	options: ValidateConfigOptions = {}
 ) {
-	const { minWidthRatio = DEFAULT_MIN_WIDTH_RATIO, minHeightRatio = DEFAULT_MIN_HEIGHT_RATIO } =
-		options;
+	// At the precision split points are stored with, as HorizonLayout applies them.
+	const minWidthRatio = roundSplitPoint(options.minWidthRatio ?? DEFAULT_MIN_WIDTH_RATIO);
+	const minHeightRatio = roundSplitPoint(options.minHeightRatio ?? DEFAULT_MIN_HEIGHT_RATIO);
 
 	if (config.maximizedView && !views.has(config.maximizedView)) {
 		throw new Error(`config.maximizedView: unknown view id "${config.maximizedView}"`);
@@ -240,7 +243,7 @@ export function validateConfig<V>(
 				throw new Error(`${path}.splitPoints[${i}]: expected a finite number`);
 			}
 			const point = roundSplitPoint(split.splitPoints[i]!);
-			const prev = split.splitPoints[i - 1] ?? 0;
+			const prev = roundSplitPoint(split.splitPoints[i - 1] ?? 0);
 			if (point < roundSplitPoint(prev + minRatio) || point > roundSplitPoint(1 - minRatio)) {
 				throw new Error(`${path}.splitPoints[${i}]: leaves a pane smaller than the minimum ratio`);
 			}

@@ -276,6 +276,29 @@ describe('validateConfig', () => {
 	});
 });
 
+describe('validateConfig with a minimum ratio finer than the stored points', () => {
+	it('takes the ratio at 4 decimals, as split points are stored', () => {
+		const split = (splitPoints: [number, number]): LayoutConfig => ({
+			root: {
+				direction: 'horizontal',
+				views: [
+					{ tabs: ['a'], activeTabIndex: 0 },
+					{ tabs: ['b'], activeTabIndex: 0 },
+					{ tabs: ['c'], activeTabIndex: 0 }
+				],
+				splitPoints
+			}
+		});
+		// 0.10005 is taken as 0.1001, so the second pane, 0.1 wide, is too narrow.
+		expect(() =>
+			validateConfig(split([0.1074, 0.2075]), views, { minWidthRatio: 0.10005 })
+		).not.toThrow();
+		expect(() =>
+			validateConfig(split([0.1074, 0.2074]), views, { minWidthRatio: 0.10005 })
+		).toThrow('config.root.splitPoints[1]: leaves a pane smaller than the minimum ratio');
+	});
+});
+
 describe('validateConfig with floating groups', () => {
 	it('accepts floating groups next to the docked layout', () => {
 		const floating: FloatingGroupConfig[] = [{ tabs: ['e'], activeTabIndex: 0, rect }];

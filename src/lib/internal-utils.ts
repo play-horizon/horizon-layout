@@ -4,7 +4,7 @@
  * @module
  */
 import type { DropTarget } from './internal-types.ts';
-import type { KeyboardControl, Modifier } from './types.ts';
+import type { KeyboardControl, Modifier, NodeConfig, SplitConfig } from './types.ts';
 
 /** The default minimum width of a pane, as a fraction of its horizontal split. */
 export const DEFAULT_MIN_WIDTH_RATIO = 0.1;
@@ -17,6 +17,16 @@ export const DEFAULT_MIN_HEIGHT_RATIO = 0.2;
  */
 export function roundSplitPoint(ratio: number): number {
 	return Number(ratio.toFixed(4));
+}
+
+/**
+ * Rounds every split point under `node` to the stored precision, in place, so that every bound
+ * the layout reasons about is a multiple of 0.0001.
+ */
+export function roundSplitPoints(node: NodeConfig): void {
+	if (!('splitPoints' in node)) return;
+	node.splitPoints = node.splitPoints.map(roundSplitPoint) as SplitConfig['splitPoints'];
+	for (const child of node.views) roundSplitPoints(child);
 }
 
 /**

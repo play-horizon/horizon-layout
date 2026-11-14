@@ -4,8 +4,14 @@
  * @module
  */
 import { describe, expect, it } from 'vitest';
-import { dropTargetType, findControl, getModifier, roundSplitPoint } from './internal-utils.ts';
-import type { KeyboardControl } from './types.ts';
+import {
+	dropTargetType,
+	findControl,
+	getModifier,
+	roundSplitPoint,
+	roundSplitPoints
+} from './internal-utils.ts';
+import type { KeyboardControl, NodeConfig } from './types.ts';
 
 describe('getModifier', () => {
 	it.each([
@@ -58,5 +64,28 @@ describe('roundSplitPoint', () => {
 		expect(roundSplitPoint(0.2 + 0.1)).toBe(0.3);
 		expect(roundSplitPoint(1 / 3)).toBe(0.3333);
 		expect(roundSplitPoint(0.66666)).toBe(0.6667);
+	});
+});
+
+describe('roundSplitPoints', () => {
+	it('rounds every split point of a tree, in place', () => {
+		const tree: NodeConfig = {
+			direction: 'horizontal',
+			views: [
+				{ tabs: ['a'], activeTabIndex: 0 },
+				{
+					direction: 'vertical',
+					views: [
+						{ tabs: ['b'], activeTabIndex: 0 },
+						{ tabs: ['c'], activeTabIndex: 0 }
+					],
+					splitPoints: [0.66666]
+				}
+			],
+			splitPoints: [0.30001]
+		};
+		roundSplitPoints(tree);
+		expect(tree.splitPoints).toEqual([0.3]);
+		expect((tree.views[1] as { splitPoints: number[] }).splitPoints).toEqual([0.6667]);
 	});
 });

@@ -96,7 +96,7 @@ interface SplitConfig {
 }
 ```
 
-`splitPoints` are fractions `[0, 1]` of the container's width (`horizontal`) or height (`vertical`). For example, `[0.33, 0.66]` divides the container into three equal thirds.
+`splitPoints` are fractions `[0, 1]` of the container's width (`horizontal`) or height (`vertical`). For example, `[0.33, 0.66]` divides the container into three equal thirds. They are kept at 4 decimals: HorizonLayout rounds the split points it is given, and the bound `config` gets them back rounded.
 
 #### `TabGroupConfig`
 
@@ -139,7 +139,7 @@ update as, deleting it from the map; a config still showing a deleted view is in
 
 | Prop                  | Type                          | Default               | Description                                                                                                                                                                    |
 | --------------------- | ----------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `config`              | `LayoutConfig`                | _(required)_          | Bindable layout state.                                                                                                                                                         |
+| `config`              | `LayoutConfig`                | _(required)_          | Bindable layout state. Its split points are written back rounded to 4 decimals.                                                                                                |
 | `views`               | `SvelteMap<Id, View>`         | _(required)_          | Map from view id to its descriptor.                                                                                                                                            |
 | `translations`        | `Partial<LayoutTranslations>` | `englishTranslations` | The text the layout writes itself, in your app's language; each key left out is English (see [Translations](#translations)). Apps that translate pass every key.               |
 | `tabgroupControls`    | `Snippet<[Id]>[]`             | `[]`                  | Snippets rendered in every tab-group toolbar (receives active viewId).                                                                                                         |
@@ -158,7 +158,8 @@ update as, deleting it from the map; a config still showing a deleted view is in
 | `baseClass`           | `string`                      | `"horizon-layout"`    | Root CSS class and BEM prefix for all generated elements.                                                                                                                      |
 | `skipValidation`      | `boolean`                     | `false`               | Skip config validation on every update (use after pre-validating with `validateConfig`).                                                                                       |
 
-`hideTabBar` never hides a floating group's tab bar: it is what moves the group.
+`hideTabBar` never hides a floating group's tab bar: it is what moves the group. `minWidthRatio`
+and `minHeightRatio` are taken at the precision split points are stored with (4 decimals).
 
 ---
 
@@ -390,7 +391,7 @@ dropped. `parseLayoutConfig` only checks the structure, it does not validate tha
 
 ## `validateConfig`
 
-Validate a `LayoutConfig` before passing it to `HorizonLayout`. Throws an `Error` describing the first problem found if the config is invalid, and returns nothing. It checks that every id names a view of `views`, that no view is shown twice, that every `activeTabIndex` is the index of a tab, that every split has two views or more and split points that leave each pane its minimum ratio, that every floating `rect` has finite numbers and a positive size, and that the maximized view isn't in a popout. The error names the faulty field by its path, for example `config.root.views[1].activeTabIndex: expected an integer from 0 to 2, the index of a tab`.
+Validate a `LayoutConfig` before passing it to `HorizonLayout`. Throws an `Error` describing the first problem found if the config is invalid, and returns nothing. It checks that every id names a view of `views`, that no view is shown twice, that every `activeTabIndex` is the index of a tab, that every split has two views or more and split points that leave each pane its minimum ratio (both taken at 4 decimals, as the layout takes them), that every floating `rect` has finite numbers and a positive size, and that the maximized view isn't in a popout. The error names the faulty field by its path, for example `config.root.views[1].activeTabIndex: expected an integer from 0 to 2, the index of a tab`.
 
 ```ts
 import { validateConfig } from 'horizon-layout';

@@ -102,8 +102,10 @@ config's split points back into range, so the layout never shows its error state
 		input.value = String(maxDepth);
 	}
 
+	// At the 4-decimal precision the layout takes a minimum ratio at, so the split points kept
+	// here meet the minimum as the layout checks it.
 	function clampRatio(value: number): number {
-		return Math.min(Math.max(value, 0), MAX_MIN_RATIO);
+		return Number(Math.min(Math.max(value, 0), MAX_MIN_RATIO).toFixed(4));
 	}
 </script>
 

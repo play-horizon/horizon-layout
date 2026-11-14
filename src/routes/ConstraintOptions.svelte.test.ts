@@ -6,6 +6,7 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 import type { LayoutConfig } from '#lib/types.js';
+import { validateConfig } from '#lib/utils.js';
 import ConstraintOptions from './ConstraintOptions.svelte';
 
 /** Renders the fields for a layout of three side-by-side panes, and returns their state. */
@@ -93,5 +94,25 @@ describe('ConstraintOptions', () => {
 		expect(height.value).toBe('0.45');
 		expect(state.maxDepth).toBe(10);
 		expect(depth.value).toBe('10');
+	});
+
+	it('takes a minimum at 4 decimals, as the layout does, keeping the split points valid', async () => {
+		const state = renderOptions();
+		state.config.root = {
+			direction: 'horizontal',
+			views: [
+				{ tabs: ['a'], activeTabIndex: 0 },
+				{ tabs: ['b'], activeTabIndex: 0 },
+				{ tabs: ['c'], activeTabIndex: 0 }
+			],
+			splitPoints: [0.1074, 0.15]
+		};
+		const field = screen.getByLabelText('Min width ratio') as HTMLInputElement;
+
+		await fireEvent.change(field, { target: { value: '0.10005' } });
+
+		expect(state.minWidthRatio).toBe(0.1001);
+		const views = new Map(['a', 'b', 'c'].map((id) => [id, null]));
+		expect(() => validateConfig(state.config, views, { minWidthRatio: 0.10005 })).not.toThrow();
 	});
 });

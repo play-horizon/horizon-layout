@@ -36,7 +36,7 @@ groups they make, focus following a moved tab, and the popout windows' lifecycle
 		validateConfig
 	} from './utils.ts';
 	import { DEFAULT_MIN_WIDTH_RATIO, DEFAULT_MIN_HEIGHT_RATIO } from './internal-utils.ts';
-	import { dropTargetType, roundSplitPoint } from './internal-utils.ts';
+	import { dropTargetType, roundSplitPoint, roundSplitPoints } from './internal-utils.ts';
 	import type { DropTarget } from './internal-types.ts';
 	import { reconcileConfig } from './reconcile.ts';
 	import { moveFloatingGroup, resizeFloatingGroup } from './floating.ts';
@@ -386,10 +386,6 @@ groups they make, focus following a moved tab, and the popout windows' lifecycle
 		internalConfig?.root ? buildNodeParentMap(internalConfig.root) : new SvelteMap()
 	);
 
-	// The validation inputs the config was last validated with (not state: only the effect below
-	// reads it).
-	let validatedWith: unknown[] = [];
-
 	// Propagate external config changes → internalConfig.
 	//
 	// External config is always authoritative.
@@ -399,29 +395,22 @@ groups they make, focus following a moved tab, and the popout windows' lifecycle
 	// invalid, the drag is cancelled, and the new config is applied (or, when invalid, the layout
 	// shows nothing) immediately.
 	$effect(() => {
-		// The inputs of the validation: when one changes, the config is validated again even if
-		// it is unchanged (tighter minimum ratios can make it invalid).
-		// The ids are read from the map, so adding or removing a view revalidates too.
-		const viewIds = JSON.stringify([...views.keys()]);
-		const inputs = [minWidthRatio, minHeightRatio, maxDepth, skipValidation, views, viewIds];
-		const inputsChanged = inputs.some((input, i) => input !== validatedWith[i]);
-		validatedWith = inputs;
-
 		const external = $state.snapshot(config);
-		// The layout as it was before a drag in progress took its tab out.
-		const shown = untrack(() =>
-			dragData ? dragData.configBeforeDrag : internalConfig && $state.snapshot(internalConfig)
-		);
-		const unchanged = shown !== null && areConfigsEquivalent(shown, external);
-		if (unchanged && !inputsChanged) return;
-
 		if (!isValidConfig(external)) {
 			if (untrack(() => dragData)) dragData = null;
 			internalConfig = null;
 			return;
 		}
-		// Still valid and unchanged: a drag in progress goes on.
-		if (unchanged) return;
+		// Split points are shown at the precision they are stored with (and validated so); the
+		// bound config gets them back rounded from the internal copy.
+		if (external.root) roundSplitPoints(external.root);
+
+		// The layout as it was before a drag in progress took its tab out: unchanged, the drag
+		// goes on.
+		const shown = untrack(() =>
+			dragData ? dragData.configBeforeDrag : internalConfig && $state.snapshot(internalConfig)
+		);
+		if (shown !== null && areConfigsEquivalent(shown, external)) return;
 
 		if (untrack(() => dragData)) dragData = null;
 		// Applied in place, so the panels still in the same split stay mounted.
@@ -459,7 +448,10 @@ groups they make, focus following a moved tab, and the popout windows' lifecycle
 			}
 
 			try {
-				validateConfig(input, views, { minWidthRatio, minHeightRatio });
+				validateConfig(input, views, {
+					minWidthRatio: minRatioOf('horizontal'),
+					minHeightRatio: minRatioOf('vertical')
+				});
 			} catch (e) {
 				console.error(`HorizonLayout: ${(e as Error).message}`);
 				return false;
@@ -472,7 +464,7 @@ groups they make, focus following a moved tab, and the popout windows' lifecycle
 	// Moves split point `index` to `ratio`, kept between its neighbours with the minimum pane size
 	// on each side, and rounded to the stored precision.
 	function moveSplit(split: SplitConfig, index: number, ratio: number) {
-		const minRatio = split.direction === 'horizontal' ? minWidthRatio : minHeightRatio;
+		const minRatio = minRatioOf(split.direction);
 		const min = (split.splitPoints[index - 1] ?? 0) + minRatio;
 		const max = (split.splitPoints[index + 1] ?? 1) - minRatio;
 		const clamped = roundSplitPoint(Math.min(Math.max(ratio, min), max));
@@ -593,12 +585,28 @@ groups they make, focus following a moved tab, and the popout windows' lifecycle
 		findClosestTabGroupAndMoveTab(tabGroup);
 	}
 
-	// The middle of the pane at `parent.index` of its split, as a split point.
+	// The minimum pane size along a split's axis, at the precision split points are stored with:
+	// with every bound a multiple of 0.0001, the middle of a pane that can be halved, rounded to
+	// that precision, still leaves each half its minimum, as validateConfig checks it.
+	function minRatioOf(direction: SplitConfig['direction']): number {
+		return roundSplitPoint(direction === 'horizontal' ? minWidthRatio : minHeightRatio);
+	}
+
+	// Whether the pane at `parent.index` is large enough to be halved, each half keeping the
+	// minimum pane size.
+	function hasRoomToHalve(parent: ParentEntry): boolean {
+		const share =
+			(parent.parent.splitPoints[parent.index] ?? 1) -
+			(parent.parent.splitPoints[parent.index - 1] ?? 0);
+		return roundSplitPoint(share) >= roundSplitPoint(2 * minRatioOf(parent.parent.direction));
+	}
+
+	// The middle of a pane, where splitting it puts the new split point, at the stored precision.
 	function paneMidpoint(parent: ParentEntry): number {
-		return (
+		return roundSplitPoint(
 			((parent.parent.splitPoints[parent.index - 1] ?? 0) +
 				(parent.parent.splitPoints[parent.index] ?? 1)) /
-			2
+				2
 		);
 	}
 
@@ -612,14 +620,7 @@ groups they make, focus following a moved tab, and the popout windows' lifecycle
 	// each half keeps the minimum pane size; in a new nested split, when maxDepth allows one.
 	function canSplitTabGroup(tabGroup: TabGroupConfig, splitDirection: SplitConfig['direction']) {
 		const parent = nodeParentMap.get(tabGroup);
-		if (parent?.parent.direction === splitDirection) {
-			return (
-				((parent.parent.splitPoints[parent.index] ?? 1) -
-					(parent.parent.splitPoints[parent.index - 1] ?? 0)) /
-					2 >=
-				(splitDirection === 'horizontal' ? minWidthRatio : minHeightRatio)
-			);
-		}
+		if (parent?.parent.direction === splitDirection) return hasRoomToHalve(parent);
 
 		const getNodeDepth = (node: NodeConfig, depth = 1): number => {
 			const parent = nodeParentMap.get(node);
@@ -709,9 +710,7 @@ groups they make, focus following a moved tab, and the popout windows' lifecycle
 		if (nodeConfigType(root) === 'split' && (root as SplitConfig).direction === splitDirection) {
 			const split = root as SplitConfig;
 			const edge = { parent: split, index: isFirst ? 0 : split.views.length - 1 };
-			const share = (split.splitPoints[edge.index] ?? 1) - (split.splitPoints[edge.index - 1] ?? 0);
-			const minRatio = splitDirection === 'horizontal' ? minWidthRatio : minHeightRatio;
-			if (share / 2 < minRatio) return;
+			if (!hasRoomToHalve(edge)) return;
 			const midpoint = paneMidpoint(edge);
 			const group: TabGroupConfig = { tabs: [takeActiveTab(source)], activeTabIndex: 0 };
 			const insertIndex = isFirst ? 0 : split.views.length;
@@ -1117,8 +1116,8 @@ groups they make, focus following a moved tab, and the popout windows' lifecycle
 						{onHoverExit}
 						{canDrop}
 						{showSplitRatio}
-						{minWidthRatio}
-						{minHeightRatio}
+						minWidthRatio={minRatioOf('horizontal')}
+						minHeightRatio={minRatioOf('vertical')}
 						{hideTabBar}
 						keyboardControls={controls}
 						{formatRatio}

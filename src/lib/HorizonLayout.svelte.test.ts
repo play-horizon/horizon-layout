@@ -11,7 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import LayoutHarness from '../test/LayoutHarness.svelte';
 import HorizonLayout from './HorizonLayout.svelte';
 import { mounts } from '../test/ViewBody.svelte';
-import { removeView } from './utils.ts';
+import { removeView, validateConfig } from './utils.ts';
 import type {
 	Id,
 	KeyboardControls,
@@ -121,6 +121,17 @@ describe('HorizonLayout', () => {
 		flushSync();
 		expect(screen.getAllByRole('tablist')).toHaveLength(2);
 	});
+	it('renders nothing for a config of the wrong shape, logging why, without throwing', () => {
+		const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const malformed = { ...twoPanes() };
+		(malformed.root as { splitPoints: unknown }).splitPoints = null;
+
+		renderLayout(malformed);
+
+		expect(screen.queryByRole('tablist')).toBeNull();
+		expect(error).toHaveBeenCalledOnce();
+	});
+
 	it('validates the config again when the minimum ratios tighten', () => {
 		const error = vi.spyOn(console, 'error').mockImplementation(() => {});
 		const props = $state({ config: twoPanes(), minWidthRatio: 0.1 });
@@ -341,5 +352,116 @@ describe('the views map', () => {
 		expect(error).toHaveBeenCalledWith(
 			'HorizonLayout: config.root.views[1].tabs[0]: unknown view id "c"'
 		);
+	});
+});
+
+describe('splitting a pane', () => {
+	it('splits only into configs its validation takes, the minimum taken at 4 decimals', async () => {
+		const middle = (splitPoints: [number, number]) =>
+			({
+				root: {
+					direction: 'horizontal',
+					views: [
+						{ tabs: ['a'], activeTabIndex: 0 },
+						{ tabs: ['b', 'c'], activeTabIndex: 0 },
+						{ tabs: ['d'], activeTabIndex: 0 }
+					],
+					splitPoints
+				}
+			}) as LayoutConfig;
+		// 0.10005 is taken as 0.1001: the middle pane, 0.2001 wide, can't be halved.
+		const props = $state({ config: middle([0.1073, 0.3074]) });
+		render(LayoutHarness, {
+			props: {
+				get config() {
+					return props.config;
+				},
+				set config(value) {
+					props.config = value;
+				},
+				ids: ['a', 'b', 'c', 'd'],
+				minWidthRatio: 0.10005
+			}
+		});
+		const views = new Map(['a', 'b', 'c', 'd'].map((id) => [id, null]));
+
+		await pressOnTabList(1, 'ArrowRight', { altKey: true });
+		expect(props.config).toEqual(middle([0.1073, 0.3074]));
+		expect(screen.getAllByRole('tablist')).toHaveLength(3);
+
+		props.config = middle([0.1073, 0.3075]);
+		flushSync();
+		await pressOnTabList(1, 'ArrowRight', { altKey: true });
+		expect((props.config.root as SplitConfig).splitPoints).toEqual([0.1073, 0.2074, 0.3075]);
+		expect(() => validateConfig(props.config, views, { minWidthRatio: 0.10005 })).not.toThrow();
+		expect(screen.getAllByRole('tablist')).toHaveLength(4);
+	});
+
+	it('rounds the split points it is given, and halves only what they leave room for', async () => {
+		const props = $state({
+			config: {
+				root: {
+					direction: 'horizontal',
+					views: [
+						{ tabs: ['a'], activeTabIndex: 0 },
+						{ tabs: ['b', 'c'], activeTabIndex: 0 },
+						{ tabs: ['d'], activeTabIndex: 0 }
+					],
+					splitPoints: [0.10005, 0.30001]
+				}
+			} as LayoutConfig
+		});
+		render(LayoutHarness, {
+			props: {
+				get config() {
+					return props.config;
+				},
+				set config(value) {
+					props.config = value;
+				},
+				ids: ['a', 'b', 'c', 'd']
+			}
+		});
+		flushSync();
+		// Taken as [0.1001, 0.3]: the middle pane, 0.1999 wide, can't be halved.
+		expect((props.config.root as SplitConfig).splitPoints).toEqual([0.1001, 0.3]);
+
+		await pressOnTabList(1, 'ArrowRight', { altKey: true });
+		expect((props.config.root as SplitConfig).splitPoints).toEqual([0.1001, 0.3]);
+		const views = new Map(['a', 'b', 'c', 'd'].map((id) => [id, null]));
+		expect(() => validateConfig(props.config, views)).not.toThrow();
+	});
+
+	it('stores the new split point at the stored precision', async () => {
+		const props = $state({
+			config: {
+				root: {
+					direction: 'horizontal',
+					views: [
+						{ tabs: ['a'], activeTabIndex: 0 },
+						{ tabs: ['b', 'c'], activeTabIndex: 0 },
+						{ tabs: ['d'], activeTabIndex: 0 }
+					],
+					splitPoints: [0.1, 0.2]
+				}
+			} as LayoutConfig
+		});
+		render(LayoutHarness, {
+			props: {
+				get config() {
+					return props.config;
+				},
+				set config(value) {
+					props.config = value;
+				},
+				ids: ['a', 'b', 'c', 'd'],
+				minWidthRatio: 0.01
+			}
+		});
+
+		await pressOnTabList(1, 'ArrowRight', { altKey: true });
+
+		// (0.1 + 0.2) / 2 is 0.15000000000000002 in floating point.
+		expect((props.config.root as SplitConfig).splitPoints).toEqual([0.1, 0.15, 0.2]);
 	});
 });
