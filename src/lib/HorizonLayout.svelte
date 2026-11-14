@@ -56,180 +56,7 @@
 		minHeightRatio = DEFAULT_MIN_HEIGHT_RATIO,
 		maxDepth = 6,
 		hideTabBar = false,
-		keyboardControls = {
-			splitControls: [
-				// Escape deselects/Blurs the split resizer.
-				{
-					shortcuts: [{ key: 'Escape' }],
-					action: (_, event) => (event.currentTarget as HTMLElement).blur()
-				},
-				// Arrow keys move the resizer by 1 % steps.
-				{
-					shortcuts: [{ key: 'ArrowLeft' }, { key: 'ArrowUp' }],
-					action: (data) =>
-						moveSplit(data.config, data.index, data.config.splitPoints[data.index]! - 0.01)
-				},
-				{
-					shortcuts: [{ key: 'ArrowRight' }, { key: 'ArrowDown' }],
-					action: (data) =>
-						moveSplit(data.config, data.index, data.config.splitPoints[data.index]! + 0.01)
-				},
-				// Shift → 10 % steps.
-				{
-					shortcuts: [
-						{ modifier: 'shift', key: 'ArrowLeft' },
-						{ modifier: 'shift', key: 'ArrowUp' }
-					],
-					action: (data) =>
-						moveSplit(data.config, data.index, data.config.splitPoints[data.index]! - 0.1)
-				},
-				{
-					shortcuts: [
-						{ modifier: 'shift', key: 'ArrowRight' },
-						{ modifier: 'shift', key: 'ArrowDown' }
-					],
-					action: (data) =>
-						moveSplit(data.config, data.index, data.config.splitPoints[data.index]! + 0.1)
-				},
-				// Ctrl → 0.1 % steps.
-				{
-					shortcuts: [
-						{ modifier: 'ctrl', key: 'ArrowLeft' },
-						{ modifier: 'ctrl', key: 'ArrowUp' }
-					],
-					action: (data) =>
-						moveSplit(data.config, data.index, data.config.splitPoints[data.index]! - 0.001)
-				},
-				{
-					shortcuts: [
-						{ modifier: 'ctrl', key: 'ArrowRight' },
-						{ modifier: 'ctrl', key: 'ArrowDown' }
-					],
-					action: (data) =>
-						moveSplit(data.config, data.index, data.config.splitPoints[data.index]! + 0.001)
-				},
-				// Alt → 0.01 % steps.
-				{
-					shortcuts: [
-						{ modifier: 'alt', key: 'ArrowLeft' },
-						{ modifier: 'alt', key: 'ArrowUp' }
-					],
-					action: (data) =>
-						moveSplit(data.config, data.index, data.config.splitPoints[data.index]! - 0.0001)
-				},
-				{
-					shortcuts: [
-						{ modifier: 'alt', key: 'ArrowRight' },
-						{ modifier: 'alt', key: 'ArrowDown' }
-					],
-					action: (data) =>
-						moveSplit(data.config, data.index, data.config.splitPoints[data.index]! + 0.0001)
-				},
-				// Home -> snap the resizer to the minimum valid position.
-				{
-					shortcuts: [{ key: 'Home' }],
-					action: (data) => moveSplit(data.config, data.index, 0)
-				},
-				// End -> snap the resizer to the maximum valid position.
-				{
-					shortcuts: [{ key: 'End' }],
-					action: (data) => moveSplit(data.config, data.index, 1)
-				}
-			],
-			tabGroupControls: [
-				// Escape Unselects/Blurs the tab group.
-				{
-					shortcuts: [{ key: 'Escape' }],
-					action: (_, event) => (event.currentTarget as HTMLElement).blur()
-				},
-				// Arrow keys cycle the active tab.
-				{
-					shortcuts: [{ key: 'ArrowRight' }, { key: 'ArrowDown' }],
-					action: (tg) => selectTab(tg, (tg.activeTabIndex + 1) % tg.tabs.length)
-				},
-				{
-					shortcuts: [{ key: 'ArrowLeft' }, { key: 'ArrowUp' }],
-					action: (tg) => selectTab(tg, (tg.activeTabIndex + tg.tabs.length - 1) % tg.tabs.length)
-				},
-				// Home/End -> select the first/last tab.
-				{
-					shortcuts: [{ key: 'Home' }],
-					action: (tg) => selectTab(tg, 0)
-				},
-				{
-					shortcuts: [{ key: 'End' }],
-					action: (tg) => selectTab(tg, tg.tabs.length - 1)
-				},
-				// Shift + Arrow reorders tabs within the group.
-				{
-					shortcuts: [
-						{ modifier: 'shift', key: 'ArrowRight' },
-						{ modifier: 'shift', key: 'ArrowDown' }
-					],
-					action: (tg) => moveTabToIndex(tg, (tg.activeTabIndex + 1) % tg.tabs.length)
-				},
-				{
-					shortcuts: [
-						{ modifier: 'shift', key: 'ArrowLeft' },
-						{ modifier: 'shift', key: 'ArrowUp' }
-					],
-					action: (tg) =>
-						moveTabToIndex(tg, (tg.activeTabIndex + tg.tabs.length - 1) % tg.tabs.length)
-				},
-				// Shift + Home/End moves the active tab to the start/end of the group.
-				{
-					shortcuts: [{ modifier: 'shift', key: 'Home' }],
-					action: (tg) => moveTabToIndex(tg, 0)
-				},
-				{
-					shortcuts: [{ modifier: 'shift', key: 'End' }],
-					action: (tg) => moveTabToIndex(tg, tg.tabs.length - 1)
-				},
-				// Ctrl + Arrow moves the active tab to the nearest group in that direction.
-				{
-					shortcuts: [{ modifier: 'ctrl', key: 'ArrowRight' }],
-					action: (tg) => moveActiveTabToClosestTabGroup(tg, 'right')
-				},
-				{
-					shortcuts: [{ modifier: 'ctrl', key: 'ArrowDown' }],
-					action: (tg) => moveActiveTabToClosestTabGroup(tg, 'down')
-				},
-				{
-					shortcuts: [{ modifier: 'ctrl', key: 'ArrowLeft' }],
-					action: (tg) => moveActiveTabToClosestTabGroup(tg, 'left')
-				},
-				{
-					shortcuts: [{ modifier: 'ctrl', key: 'ArrowUp' }],
-					action: (tg) => moveActiveTabToClosestTabGroup(tg, 'up')
-				},
-				// Ctrl + Home/End moves the active tab to the first/last group in the layout.
-				{
-					shortcuts: [{ modifier: 'ctrl', key: 'Home' }],
-					action: (tg) => moveActiveTabToTabGroup(tg, firstTabGroup())
-				},
-				{
-					shortcuts: [{ modifier: 'ctrl', key: 'End' }],
-					action: (tg) => moveActiveTabToTabGroup(tg, lastTabGroup())
-				},
-				// Alt + Arrow splits the active tab out into a new pane in that direction.
-				{
-					shortcuts: [{ modifier: 'alt', key: 'ArrowRight' }],
-					action: (tg) => splitTabGroup(tg, 'right')
-				},
-				{
-					shortcuts: [{ modifier: 'alt', key: 'ArrowDown' }],
-					action: (tg) => splitTabGroup(tg, 'down')
-				},
-				{
-					shortcuts: [{ modifier: 'alt', key: 'ArrowLeft' }],
-					action: (tg) => splitTabGroup(tg, 'left')
-				},
-				{
-					shortcuts: [{ modifier: 'alt', key: 'ArrowUp' }],
-					action: (tg) => splitTabGroup(tg, 'up')
-				}
-			]
-		},
+		keyboardControls = {},
 		formatRatio = (ratio: number) => `${(ratio * 100).toFixed(2)}%`,
 		formatRatioForAria = (ratio: number) => Number((ratio * 100).toFixed(2)),
 		onPopoutClose,
@@ -263,7 +90,10 @@
 		maxDepth?: number;
 		/** Hide the tab bar entirely (useful when every group has exactly one tab). */
 		hideTabBar?: boolean;
-		/** Override the default keyboard shortcuts for splits and tab groups. */
+		/**
+		 * Keyboard shortcuts for splits and tab groups. Each category given replaces its built-in
+		 * controls; a category left out keeps them.
+		 */
 		keyboardControls?: KeyboardControls;
 		/** Format a split ratio as a display string. Default: "50.00%". */
 		formatRatio?: (ratio: number) => string;
@@ -289,6 +119,187 @@
 	// Key by key, so a key passed as undefined falls back too.
 	let fullTranslations: LayoutTranslations = $derived({
 		resizePane: translations.resizePane ?? englishTranslations.resizePane
+	});
+
+	// The built-in keyboard controls, used for each category `keyboardControls` leaves out.
+	const defaultKeyboardControls: Required<KeyboardControls> = {
+		splitControls: [
+			// Escape deselects/Blurs the split resizer.
+			{
+				shortcuts: [{ key: 'Escape' }],
+				action: (_, event) => (event.currentTarget as HTMLElement).blur()
+			},
+			// Arrow keys move the resizer by 1 % steps.
+			{
+				shortcuts: [{ key: 'ArrowLeft' }, { key: 'ArrowUp' }],
+				action: (data) =>
+					moveSplit(data.config, data.index, data.config.splitPoints[data.index]! - 0.01)
+			},
+			{
+				shortcuts: [{ key: 'ArrowRight' }, { key: 'ArrowDown' }],
+				action: (data) =>
+					moveSplit(data.config, data.index, data.config.splitPoints[data.index]! + 0.01)
+			},
+			// Shift → 10 % steps.
+			{
+				shortcuts: [
+					{ modifier: 'shift', key: 'ArrowLeft' },
+					{ modifier: 'shift', key: 'ArrowUp' }
+				],
+				action: (data) =>
+					moveSplit(data.config, data.index, data.config.splitPoints[data.index]! - 0.1)
+			},
+			{
+				shortcuts: [
+					{ modifier: 'shift', key: 'ArrowRight' },
+					{ modifier: 'shift', key: 'ArrowDown' }
+				],
+				action: (data) =>
+					moveSplit(data.config, data.index, data.config.splitPoints[data.index]! + 0.1)
+			},
+			// Ctrl → 0.1 % steps.
+			{
+				shortcuts: [
+					{ modifier: 'ctrl', key: 'ArrowLeft' },
+					{ modifier: 'ctrl', key: 'ArrowUp' }
+				],
+				action: (data) =>
+					moveSplit(data.config, data.index, data.config.splitPoints[data.index]! - 0.001)
+			},
+			{
+				shortcuts: [
+					{ modifier: 'ctrl', key: 'ArrowRight' },
+					{ modifier: 'ctrl', key: 'ArrowDown' }
+				],
+				action: (data) =>
+					moveSplit(data.config, data.index, data.config.splitPoints[data.index]! + 0.001)
+			},
+			// Alt → 0.01 % steps.
+			{
+				shortcuts: [
+					{ modifier: 'alt', key: 'ArrowLeft' },
+					{ modifier: 'alt', key: 'ArrowUp' }
+				],
+				action: (data) =>
+					moveSplit(data.config, data.index, data.config.splitPoints[data.index]! - 0.0001)
+			},
+			{
+				shortcuts: [
+					{ modifier: 'alt', key: 'ArrowRight' },
+					{ modifier: 'alt', key: 'ArrowDown' }
+				],
+				action: (data) =>
+					moveSplit(data.config, data.index, data.config.splitPoints[data.index]! + 0.0001)
+			},
+			// Home -> snap the resizer to the minimum valid position.
+			{
+				shortcuts: [{ key: 'Home' }],
+				action: (data) => moveSplit(data.config, data.index, 0)
+			},
+			// End -> snap the resizer to the maximum valid position.
+			{
+				shortcuts: [{ key: 'End' }],
+				action: (data) => moveSplit(data.config, data.index, 1)
+			}
+		],
+		tabGroupControls: [
+			// Escape Unselects/Blurs the tab group.
+			{
+				shortcuts: [{ key: 'Escape' }],
+				action: (_, event) => (event.currentTarget as HTMLElement).blur()
+			},
+			// Arrow keys cycle the active tab.
+			{
+				shortcuts: [{ key: 'ArrowRight' }, { key: 'ArrowDown' }],
+				action: (tg) => selectTab(tg, (tg.activeTabIndex + 1) % tg.tabs.length)
+			},
+			{
+				shortcuts: [{ key: 'ArrowLeft' }, { key: 'ArrowUp' }],
+				action: (tg) => selectTab(tg, (tg.activeTabIndex + tg.tabs.length - 1) % tg.tabs.length)
+			},
+			// Home/End -> select the first/last tab.
+			{
+				shortcuts: [{ key: 'Home' }],
+				action: (tg) => selectTab(tg, 0)
+			},
+			{
+				shortcuts: [{ key: 'End' }],
+				action: (tg) => selectTab(tg, tg.tabs.length - 1)
+			},
+			// Shift + Arrow reorders tabs within the group.
+			{
+				shortcuts: [
+					{ modifier: 'shift', key: 'ArrowRight' },
+					{ modifier: 'shift', key: 'ArrowDown' }
+				],
+				action: (tg) => moveTabToIndex(tg, (tg.activeTabIndex + 1) % tg.tabs.length)
+			},
+			{
+				shortcuts: [
+					{ modifier: 'shift', key: 'ArrowLeft' },
+					{ modifier: 'shift', key: 'ArrowUp' }
+				],
+				action: (tg) =>
+					moveTabToIndex(tg, (tg.activeTabIndex + tg.tabs.length - 1) % tg.tabs.length)
+			},
+			// Shift + Home/End moves the active tab to the start/end of the group.
+			{
+				shortcuts: [{ modifier: 'shift', key: 'Home' }],
+				action: (tg) => moveTabToIndex(tg, 0)
+			},
+			{
+				shortcuts: [{ modifier: 'shift', key: 'End' }],
+				action: (tg) => moveTabToIndex(tg, tg.tabs.length - 1)
+			},
+			// Ctrl + Arrow moves the active tab to the nearest group in that direction.
+			{
+				shortcuts: [{ modifier: 'ctrl', key: 'ArrowRight' }],
+				action: (tg) => moveActiveTabToClosestTabGroup(tg, 'right')
+			},
+			{
+				shortcuts: [{ modifier: 'ctrl', key: 'ArrowDown' }],
+				action: (tg) => moveActiveTabToClosestTabGroup(tg, 'down')
+			},
+			{
+				shortcuts: [{ modifier: 'ctrl', key: 'ArrowLeft' }],
+				action: (tg) => moveActiveTabToClosestTabGroup(tg, 'left')
+			},
+			{
+				shortcuts: [{ modifier: 'ctrl', key: 'ArrowUp' }],
+				action: (tg) => moveActiveTabToClosestTabGroup(tg, 'up')
+			},
+			// Ctrl + Home/End moves the active tab to the first/last group in the layout.
+			{
+				shortcuts: [{ modifier: 'ctrl', key: 'Home' }],
+				action: (tg) => moveActiveTabToTabGroup(tg, firstTabGroup())
+			},
+			{
+				shortcuts: [{ modifier: 'ctrl', key: 'End' }],
+				action: (tg) => moveActiveTabToTabGroup(tg, lastTabGroup())
+			},
+			// Alt + Arrow splits the active tab out into a new pane in that direction.
+			{
+				shortcuts: [{ modifier: 'alt', key: 'ArrowRight' }],
+				action: (tg) => splitTabGroup(tg, 'right')
+			},
+			{
+				shortcuts: [{ modifier: 'alt', key: 'ArrowDown' }],
+				action: (tg) => splitTabGroup(tg, 'down')
+			},
+			{
+				shortcuts: [{ modifier: 'alt', key: 'ArrowLeft' }],
+				action: (tg) => splitTabGroup(tg, 'left')
+			},
+			{
+				shortcuts: [{ modifier: 'alt', key: 'ArrowUp' }],
+				action: (tg) => splitTabGroup(tg, 'up')
+			}
+		]
+	};
+
+	let controls: Required<KeyboardControls> = $derived({
+		splitControls: keyboardControls.splitControls ?? defaultKeyboardControls.splitControls,
+		tabGroupControls: keyboardControls.tabGroupControls ?? defaultKeyboardControls.tabGroupControls
 	});
 
 	// The layout operates on a validated internal copy so that invalid external
@@ -812,7 +823,7 @@
 					{minWidthRatio}
 					{minHeightRatio}
 					{hideTabBar}
-					{keyboardControls}
+					keyboardControls={controls}
 					{formatRatio}
 					{formatRatioForAria}
 					{baseClass}

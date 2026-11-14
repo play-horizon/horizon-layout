@@ -51,7 +51,7 @@
 		minWidthRatio: number;
 		minHeightRatio: number;
 		hideTabBar: boolean;
-		keyboardControls: KeyboardControls;
+		keyboardControls: Required<KeyboardControls>;
 		formatRatio: (ratio: number) => string;
 		formatRatioForAria: (ratio: number) => number;
 		baseClass: string;
@@ -115,7 +115,7 @@
 
 	function handleKeyDown(event: KeyboardEvent, index: number) {
 		const modifier = getModifier(event);
-		for (const control of keyboardControls.splitControls ?? []) {
+		for (const control of keyboardControls.splitControls) {
 			for (const shortcut of control.shortcuts) {
 				if (modifier === (shortcut.modifier ?? null) && event.key === shortcut.key) {
 					event.preventDefault();

@@ -3,12 +3,12 @@
  * renders, its accessible names, and how it applies config changes.
  * @module
  */
-import { render, screen } from '@testing-library/svelte';
+import { fireEvent, render, screen } from '@testing-library/svelte';
 import { flushSync } from 'svelte';
 import { beforeEach, describe, expect, it } from 'vitest';
 import LayoutHarness from '../test/LayoutHarness.svelte';
 import { mounts } from '../test/ViewBody.svelte';
-import type { LayoutConfig, SplitConfig, TabGroupConfig } from './types.ts';
+import type { KeyboardControls, LayoutConfig, SplitConfig, TabGroupConfig } from './types.ts';
 
 function twoPanes(): LayoutConfig {
 	return {
@@ -24,7 +24,7 @@ function twoPanes(): LayoutConfig {
 }
 
 /** Renders the harness with a config held in `$state`, and returns it. */
-function renderLayout(initial: LayoutConfig) {
+function renderLayout(initial: LayoutConfig, keyboardControls?: KeyboardControls) {
 	const state = $state({ config: initial });
 	render(LayoutHarness, {
 		props: {
@@ -34,7 +34,8 @@ function renderLayout(initial: LayoutConfig) {
 			set config(value) {
 				state.config = value;
 			},
-			ids: ['a', 'b', 'c', 'd']
+			ids: ['a', 'b', 'c', 'd'],
+			keyboardControls
 		}
 	});
 	return state;
@@ -78,5 +79,15 @@ describe('HorizonLayout', () => {
 		flushSync();
 		expect(mounts.get('a')).toBe(1);
 		expect(mounts.get('c')).toBe(1);
+	});
+
+	it('keeps the built-in controls of a category the keyboard controls leave out', async () => {
+		const state = renderLayout(twoPanes(), { splitControls: [] });
+		const [tabList] = screen.getAllByRole('tablist');
+		await fireEvent.keyDown(tabList!, { key: 'ArrowRight' });
+		expect(((state.config.root as SplitConfig).views[0] as TabGroupConfig).activeTabIndex).toBe(1);
+
+		await fireEvent.keyDown(screen.getByRole('slider'), { key: 'ArrowRight' });
+		expect((state.config.root as SplitConfig).splitPoints).toEqual([0.5]);
 	});
 });

@@ -275,7 +275,7 @@ const keyboardControls: KeyboardControls = {
 };
 ```
 
-Both arrays replace their respective defaults entirely when provided.
+Each array given replaces the built-in controls of its category entirely; a category left out keeps its built-in controls.
 
 ---
 

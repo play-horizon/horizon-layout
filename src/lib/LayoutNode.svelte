@@ -53,7 +53,7 @@
 		minWidthRatio: number;
 		minHeightRatio: number;
 		hideTabBar: boolean;
-		keyboardControls: KeyboardControls;
+		keyboardControls: Required<KeyboardControls>;
 		formatRatio: (ratio: number) => string;
 		formatRatioForAria: (ratio: number) => number;
 		baseClass: string;
@@ -96,7 +96,7 @@
 		{remainingDepth}
 		{hideTabBar}
 		controls={tabgroupControls}
-		keyboardControls={keyboardControls.tabGroupControls ?? []}
+		keyboardControls={keyboardControls.tabGroupControls}
 		baseClass={`${baseClass}-tabgroup`}
 	></HorizonTabGroup>
 {/if}
