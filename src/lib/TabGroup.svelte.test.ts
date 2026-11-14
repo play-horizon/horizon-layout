@@ -222,11 +222,26 @@ describe('tab groups', () => {
 		const target = groupOf('d');
 		await startDrag(screen.getByRole('tab', { name: 'Title of b' }));
 
-		await fireEvent.dragOver(zoneOf(target, 'right'), { dataTransfer: dataTransfer() });
+		const refused = dataTransfer();
+		const allowed = await fireEvent.dragOver(zoneOf(target, 'right'), { dataTransfer: refused });
+		expect(allowed).toBe(true);
+		expect(refused.dropEffect).toBe('none');
 		expect(target.querySelector('.horizon-layout-tabgroup__drop-hint')).toBeNull();
 		await fireEvent.drop(zoneOf(target, 'right'), { dataTransfer: dataTransfer() });
 		await fireEvent.dragEnd(window);
 
 		expect(state.config).toEqual({ ...twoPanes(), floating: [floating] });
+	});
+
+	it('let a target that takes the tab show the move', async () => {
+		renderLayout(twoPanes());
+		await startDrag(screen.getByRole('tab', { name: 'Title of b' }));
+
+		const transfer = dataTransfer();
+		const notCancelled = await fireEvent.dragOver(zoneOf(groupOf('c'), 'right'), {
+			dataTransfer: transfer
+		});
+		expect(notCancelled).toBe(false);
+		expect(transfer.dropEffect).toBe('move');
 	});
 });

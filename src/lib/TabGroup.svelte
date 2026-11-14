@@ -99,23 +99,27 @@ Internal to HorizonLayout, rendered by LayoutNode for a docked group and by Floa
 	// Reported on every dragover, not only when the target changes: the config, or whether the
 	// target accepts the tab, may have changed since the last one, and the layout must drop the
 	// tab into the group as it is now.
-	function handleHoverEnter(target: DropTarget) {
+	// Returns whether the group takes the tab there.
+	function handleHoverEnter(target: DropTarget): boolean {
 		if (!isDragging || !canDrop(config, target)) {
 			handleHoverExit();
-			return;
+			return false;
 		}
 		reportedConfig = config;
 		onHoverEnter(config, target);
 		if (hoverTarget?.side !== target.side || hoverTarget?.tabIndex !== target.tabIndex) {
 			hoverTarget = target;
 		}
+		return true;
 	}
 
+	// Only a target that takes the tab cancels the event, which is what allows a drop there and
+	// shows the move cursor.
 	function handleDragOver(event: DragEvent, target: DropTarget) {
-		event.preventDefault();
 		event.stopPropagation();
-		if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
-		handleHoverEnter(target);
+		const accepted = handleHoverEnter(target);
+		if (event.dataTransfer) event.dataTransfer.dropEffect = accepted ? 'move' : 'none';
+		if (accepted) event.preventDefault();
 	}
 
 	function handleDragLeave(event: DragEvent) {
