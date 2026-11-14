@@ -178,10 +178,14 @@ export function validateConfig<V>(
 	}
 
 	const validateTabGroup = (tabGroup: TabGroupConfig, path: string) => {
-		if (tabGroup.activeTabIndex < 0 || tabGroup.activeTabIndex >= tabGroup.tabs.length) {
-			throw new Error(`${path}.activeTabIndex: out of range`);
+		const { tabs, activeTabIndex } = tabGroup;
+		if (tabs.length === 0) throw new Error(`${path}.tabs: expected at least one tab`);
+		if (!Number.isInteger(activeTabIndex) || activeTabIndex < 0 || activeTabIndex >= tabs.length) {
+			throw new Error(
+				`${path}.activeTabIndex: expected an integer from 0 to ${tabs.length - 1}, the index of a tab`
+			);
 		}
-		for (const [i, id] of tabGroup.tabs.entries()) {
+		for (const [i, id] of tabs.entries()) {
 			if (!views.has(id)) throw new Error(`${path}.tabs[${i}]: unknown view id "${id}"`);
 			if (seenIds.has(id))
 				throw new Error(`${path}.tabs[${i}]: view "${id}" is shown more than once`);
@@ -190,11 +194,15 @@ export function validateConfig<V>(
 	};
 
 	const validateSplit = (split: SplitConfig, path: string) => {
+		if (split.views.length < 2) throw new Error(`${path}.views: expected at least two views`);
 		if (split.splitPoints.length !== split.views.length - 1) {
 			throw new Error(`${path}.splitPoints: expected one split point per gap between views`);
 		}
 		const minRatio = split.direction === 'horizontal' ? minWidthRatio : minHeightRatio;
 		for (let i = 0; i < split.splitPoints.length; i++) {
+			if (!Number.isFinite(split.splitPoints[i])) {
+				throw new Error(`${path}.splitPoints[${i}]: expected a finite number`);
+			}
 			const point = roundSplitPoint(split.splitPoints[i]!);
 			const prev = split.splitPoints[i - 1] ?? 0;
 			if (point < roundSplitPoint(prev + minRatio) || point > roundSplitPoint(1 - minRatio)) {

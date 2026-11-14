@@ -99,7 +99,9 @@ describe('validateConfig', () => {
 
 	it('rejects an out-of-range activeTabIndex', () => {
 		const config: LayoutConfig = { root: { tabs: ['a'], activeTabIndex: 1 } };
-		expect(() => validateConfig(config, views)).toThrow('config.root.activeTabIndex: out of range');
+		expect(() => validateConfig(config, views)).toThrow(
+			'config.root.activeTabIndex: expected an integer from 0 to 0, the index of a tab'
+		);
 	});
 
 	it('rejects a split whose splitPoints do not match its views', () => {
@@ -169,7 +171,41 @@ describe('validateConfig', () => {
 
 	it('rejects a negative activeTabIndex', () => {
 		const config: LayoutConfig = { root: { tabs: ['a'], activeTabIndex: -1 } };
-		expect(() => validateConfig(config, views)).toThrow('config.root.activeTabIndex: out of range');
+		expect(() => validateConfig(config, views)).toThrow(
+			'config.root.activeTabIndex: expected an integer from 0 to 0, the index of a tab'
+		);
+	});
+
+	it('rejects a fractional activeTabIndex and an empty tab group', () => {
+		const fractional: LayoutConfig = { root: { tabs: ['a', 'b'], activeTabIndex: 0.5 } };
+		expect(() => validateConfig(fractional, views)).toThrow(
+			'config.root.activeTabIndex: expected an integer from 0 to 1, the index of a tab'
+		);
+		const empty = { root: { tabs: [], activeTabIndex: 0 } } as unknown as LayoutConfig;
+		expect(() => validateConfig(empty, views)).toThrow(
+			'config.root.tabs: expected at least one tab'
+		);
+	});
+
+	it('rejects a split with a single view', () => {
+		const config = {
+			root: {
+				direction: 'horizontal',
+				views: [{ tabs: ['a'], activeTabIndex: 0 }],
+				splitPoints: []
+			}
+		} as unknown as LayoutConfig;
+		expect(() => validateConfig(config, views)).toThrow(
+			'config.root.views: expected at least two views'
+		);
+	});
+
+	it.each([Number.NaN, Infinity])('rejects the split point %s', (point) => {
+		const config = threePaneConfig();
+		(config.root as SplitConfig).splitPoints = [point];
+		expect(() => validateConfig(config, views)).toThrow(
+			'config.root.splitPoints[0]: expected a finite number'
+		);
 	});
 
 	it('rejects a tab that appears twice in the same group', () => {
@@ -242,7 +278,7 @@ describe('validateConfig with floating groups', () => {
 		const bad = (group: object) => () =>
 			validateConfig({ floating: [group as FloatingGroupConfig] }, views);
 		expect(bad({ tabs: ['a'], activeTabIndex: 1, rect })).toThrow(
-			'config.floating[0].activeTabIndex: out of range'
+			'config.floating[0].activeTabIndex: expected an integer from 0 to 0, the index of a tab'
 		);
 		expect(bad({ tabs: ['x'], activeTabIndex: 0, rect })).toThrow(
 			'config.floating[0].tabs[0]: unknown view id "x"'
