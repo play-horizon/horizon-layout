@@ -4,10 +4,11 @@
  * @module
  */
 import type { LayoutConfig } from '#lib/types.js';
-import { parseLayoutConfig } from '#lib/utils.js';
+import { parseLayoutConfig, validateConfig } from '#lib/utils.js';
 import { pageKinds, type DemoPageDef, type PageKind } from './pages.js';
 import { ratioFormats, type RatioFormat } from './ratio-formats.js';
 import { themes } from './themes.js';
+import { MAX_DEPTH, MAX_MIN_RATIO, MIN_DEPTH } from './constraints.js';
 
 const STORAGE_KEY = 'horizon-layout-demo-state';
 
@@ -62,16 +63,12 @@ export function clearDemoState(): void {
 }
 
 /**
- * The state in `saved`, with the defaults for missing or malformed options, or null when its
- * config or pages can't be used (the nested layout's page must be there).
+ * The state in `saved`, with the defaults for missing or malformed options and the constraints
+ * clamped to what the sidebar accepts, or null when it can't be shown: a config that
+ * `validateConfig` rejects for these pages and constraints, two pages with one id, or no page
+ * for the nested layout.
  */
 export function parseDemoState(saved: Record<string, unknown>): DemoState | null {
-	let config: LayoutConfig;
-	try {
-		config = parseLayoutConfig(saved['config']);
-	} catch {
-		return null;
-	}
 	const pages = (Array.isArray(saved['pages']) ? (saved['pages'] as unknown[]) : [])
 		.filter(isRecord)
 		.filter(
@@ -84,7 +81,19 @@ export function parseDemoState(saved: Record<string, unknown>): DemoState | null
 			kind: pageKinds.includes(page['kind'] as PageKind) ? (page['kind'] as PageKind) : 'blank',
 			persistent: !!page['persistent']
 		}));
-	if (!pages.some((page) => page.kind === 'nested')) return null;
+	const pagesById = new Map(pages.map((page) => [page.id, page]));
+	if (pagesById.size !== pages.length || !pages.some((page) => page.kind === 'nested')) {
+		return null;
+	}
+	const minWidthRatio = clamp(numberOr(saved['minWidthRatio'], 0.1), 0, MAX_MIN_RATIO);
+	const minHeightRatio = clamp(numberOr(saved['minHeightRatio'], 0.2), 0, MAX_MIN_RATIO);
+	let config: LayoutConfig;
+	try {
+		config = parseLayoutConfig(saved['config']);
+		validateConfig(config, pagesById, { minWidthRatio, minHeightRatio });
+	} catch {
+		return null;
+	}
 	const theme = saved['theme'];
 	const ratioFormat = saved['ratioFormat'];
 	return {
@@ -96,9 +105,9 @@ export function parseDemoState(saved: Record<string, unknown>): DemoState | null
 		disableDragAndDrop: !!saved['disableDragAndDrop'],
 		hideTabBar: !!saved['hideTabBar'],
 		skipValidation: !!saved['skipValidation'],
-		minWidthRatio: numberOr(saved['minWidthRatio'], 0.1),
-		minHeightRatio: numberOr(saved['minHeightRatio'], 0.2),
-		maxDepth: numberOr(saved['maxDepth'], 6),
+		minWidthRatio,
+		minHeightRatio,
+		maxDepth: Math.round(clamp(numberOr(saved['maxDepth'], 6), MIN_DEPTH, MAX_DEPTH)),
 		ratioFormat:
 			typeof ratioFormat === 'string' && ratioFormat in ratioFormats
 				? (ratioFormat as RatioFormat)
@@ -111,5 +120,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function numberOr(value: unknown, fallback: number): number {
-	return typeof value === 'number' ? value : fallback;
+	return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+function clamp(value: number, min: number, max: number): number {
+	return Math.min(Math.max(value, min), max);
 }

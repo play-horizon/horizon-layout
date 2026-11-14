@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { LayoutConfig, NodeConfig, SplitConfig } from '#lib/types.js';
 	import { nodeConfigType } from '#lib/utils.js';
+	import { MAX_DEPTH, MAX_MIN_RATIO, MIN_DEPTH } from './constraints.js';
 
 	// Split constraint fields for a HorizonLayout instance, without the
 	// interaction toggles — lets layouts place interaction and constraints
@@ -68,7 +69,7 @@
 
 	function onMinWidthChanged(value: number) {
 		const previous = minWidthRatio;
-		const clamped = Math.min(Math.max(value, 0), 0.45);
+		const clamped = Math.min(Math.max(value, 0), MAX_MIN_RATIO);
 		minWidthRatio = clamped;
 		if (!feasibleMinRatio(clamped, 'horizontal')) {
 			notice = 'Too large: some splits could not satisfy this minimum width';
@@ -81,7 +82,7 @@
 
 	function onMinHeightChanged(value: number) {
 		const previous = minHeightRatio;
-		const clamped = Math.min(Math.max(value, 0), 0.45);
+		const clamped = Math.min(Math.max(value, 0), MAX_MIN_RATIO);
 		minHeightRatio = clamped;
 		if (!feasibleMinRatio(clamped, 'vertical')) {
 			notice = 'Too large: some splits could not satisfy this minimum height';
@@ -93,7 +94,7 @@
 	}
 
 	function onMaxDepthChanged(value: number) {
-		maxDepth = Math.round(Math.min(Math.max(value, 1), 10));
+		maxDepth = Math.round(Math.min(Math.max(value, MIN_DEPTH), MAX_DEPTH));
 	}
 </script>
 
@@ -105,7 +106,7 @@
 			class="input"
 			type="number"
 			min="0"
-			max="0.45"
+			max={MAX_MIN_RATIO}
 			step="0.05"
 			value={minWidthRatio}
 			onchange={(e) => onMinWidthChanged(Number((e.currentTarget as HTMLInputElement).value))}
@@ -117,7 +118,7 @@
 			class="input"
 			type="number"
 			min="0"
-			max="0.45"
+			max={MAX_MIN_RATIO}
 			step="0.05"
 			value={minHeightRatio}
 			onchange={(e) => onMinHeightChanged(Number((e.currentTarget as HTMLInputElement).value))}
@@ -128,8 +129,8 @@
 		<input
 			class="input"
 			type="number"
-			min="1"
-			max="10"
+			min={MIN_DEPTH}
+			max={MAX_DEPTH}
 			step="1"
 			value={maxDepth}
 			onchange={(e) => onMaxDepthChanged(Number((e.currentTarget as HTMLInputElement).value))}
