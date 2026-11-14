@@ -67,34 +67,39 @@
 		return feasible;
 	}
 
-	function onMinWidthChanged(value: number) {
-		const previous = minWidthRatio;
-		const clamped = Math.min(Math.max(value, 0), MAX_MIN_RATIO);
-		minWidthRatio = clamped;
-		if (!feasibleMinRatio(clamped, 'horizontal')) {
+	// Each handler leaves the field showing the value in effect, which differs from the typed one
+	// when it was clamped or refused.
+	function onMinWidthChanged(input: HTMLInputElement) {
+		const value = clampRatio(Number(input.value));
+		if (feasibleMinRatio(value, 'horizontal')) {
+			notice = '';
+			minWidthRatio = value;
+			renormalizeSplitPoints();
+		} else {
 			notice = 'Too large: some splits could not satisfy this minimum width';
-			minWidthRatio = previous;
-			return;
 		}
-		notice = '';
-		renormalizeSplitPoints();
+		input.value = String(minWidthRatio);
 	}
 
-	function onMinHeightChanged(value: number) {
-		const previous = minHeightRatio;
-		const clamped = Math.min(Math.max(value, 0), MAX_MIN_RATIO);
-		minHeightRatio = clamped;
-		if (!feasibleMinRatio(clamped, 'vertical')) {
+	function onMinHeightChanged(input: HTMLInputElement) {
+		const value = clampRatio(Number(input.value));
+		if (feasibleMinRatio(value, 'vertical')) {
+			notice = '';
+			minHeightRatio = value;
+			renormalizeSplitPoints();
+		} else {
 			notice = 'Too large: some splits could not satisfy this minimum height';
-			minHeightRatio = previous;
-			return;
 		}
-		notice = '';
-		renormalizeSplitPoints();
+		input.value = String(minHeightRatio);
 	}
 
-	function onMaxDepthChanged(value: number) {
-		maxDepth = Math.round(Math.min(Math.max(value, MIN_DEPTH), MAX_DEPTH));
+	function onMaxDepthChanged(input: HTMLInputElement) {
+		maxDepth = Math.round(Math.min(Math.max(Number(input.value), MIN_DEPTH), MAX_DEPTH));
+		input.value = String(maxDepth);
+	}
+
+	function clampRatio(value: number): number {
+		return Math.min(Math.max(value, 0), MAX_MIN_RATIO);
 	}
 </script>
 
@@ -109,7 +114,7 @@
 			max={MAX_MIN_RATIO}
 			step="0.05"
 			value={minWidthRatio}
-			onchange={(e) => onMinWidthChanged(Number((e.currentTarget as HTMLInputElement).value))}
+			onchange={(e) => onMinWidthChanged(e.currentTarget)}
 		/>
 	</label>
 	<label class="field">
@@ -121,7 +126,7 @@
 			max={MAX_MIN_RATIO}
 			step="0.05"
 			value={minHeightRatio}
-			onchange={(e) => onMinHeightChanged(Number((e.currentTarget as HTMLInputElement).value))}
+			onchange={(e) => onMinHeightChanged(e.currentTarget)}
 		/>
 	</label>
 	<label class="field">
@@ -133,10 +138,10 @@
 			max={MAX_DEPTH}
 			step="1"
 			value={maxDepth}
-			onchange={(e) => onMaxDepthChanged(Number((e.currentTarget as HTMLInputElement).value))}
+			onchange={(e) => onMaxDepthChanged(e.currentTarget)}
 		/>
 	</label>
-	{#if notice}<p class="lo-notice">{notice}</p>{/if}
+	{#if notice}<p class="lo-notice" role="alert">{notice}</p>{/if}
 </section>
 
 <style>
