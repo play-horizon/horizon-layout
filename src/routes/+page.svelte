@@ -30,7 +30,7 @@
 	} from './keyboard-actions.js';
 	import { clearDemoState, loadDemoState, saveDemoState, type DemoState } from './persistence.js';
 
-	let pages = $state<DemoPageDef[]>(defaultPages());
+	let pages = $state<DemoPageDef[]>([]);
 	let nextPageNumber = 1;
 
 	let config: LayoutConfig = $state(defaultConfig());
@@ -72,27 +72,41 @@
 		}));
 	}
 
-	let views = $derived.by(() => {
-		const map = new SvelteMap<Id, View>();
-		for (const page of pages) {
-			map.set(page.id, {
-				title: page.title,
-				snippet: pageSnippet(page),
-				tabControls: [floatButton, popoutButton, closeButton]
-			});
-		}
-		return map;
-	});
+	function viewOf(page: DemoPageDef): View {
+		return {
+			title: page.title,
+			snippet: pageSnippet(page),
+			tabControls: [floatButton, popoutButton, closeButton]
+		};
+	}
+
+	// Changed entry by entry, so a page keeps its snippet while others come and go: a new snippet
+	// would remount its panel, and the nested layout would lose its own state.
+	const views = new SvelteMap<Id, View>();
+
+	function setPages(list: DemoPageDef[]) {
+		pages = list;
+		views.clear();
+		for (const page of list) views.set(page.id, viewOf(page));
+	}
+
+	setPages(defaultPages());
 
 	function addPage() {
-		const id = `page-${nextPageNumber++}` as Id;
-		pages = [...pages, { id, title: `Page ${nextPageNumber - 1}`, kind: 'blank' }];
+		const page: DemoPageDef = {
+			id: `page-${nextPageNumber}`,
+			title: `Page ${nextPageNumber}`,
+			kind: 'blank'
+		};
+		nextPageNumber += 1;
+		pages = [...pages, page];
+		views.set(page.id, viewOf(page));
 		if (config.root) {
 			const group = lastTabGroup(config.root);
-			group.tabs.push(id);
+			group.tabs.push(page.id);
 			group.activeTabIndex = group.tabs.length - 1;
 		} else {
-			config.root = { tabs: [id], activeTabIndex: 0 };
+			config.root = { tabs: [page.id], activeTabIndex: 0 };
 		}
 	}
 
@@ -101,6 +115,7 @@
 		if (!def || def.persistent) return;
 		removeView(config, id);
 		pages = pages.filter((p) => p.id !== id);
+		views.delete(id);
 	}
 
 	// Floats a view in front of the others, each new one a little lower and to the right.
@@ -112,7 +127,7 @@
 	const popoutOrigins = new PopoutOrigins();
 
 	function resetLayout() {
-		pages = defaultPages();
+		setPages(defaultPages());
 		config = defaultConfig();
 		nextPageNumber = 1;
 		popoutOrigins.clear();
@@ -185,7 +200,7 @@
 
 	function applyState(state: DemoState) {
 		config = state.config;
-		pages = state.pages;
+		setPages(state.pages);
 		nextPageNumber = highestPageNumber(state.pages) + 1;
 		mainTheme = state.theme;
 		showSplitRatio = state.showSplitRatio;

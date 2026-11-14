@@ -46,4 +46,16 @@ describe('demo page', () => {
 		const restored = screen.getByRole('tab', { name: /Nested layout/ });
 		expect(within(restored.closest('[role="tablist"]')!).getAllByRole('tab')).toHaveLength(1);
 	});
+
+	it('keeps the nested layout mounted when another page is removed', async () => {
+		render(Page);
+		flushSync();
+		const theme = document.querySelector<HTMLSelectElement>('#nested-theme-select')!;
+		await fireEvent.change(theme, { target: { value: 'light' } });
+
+		await fireEvent.click(screen.getByLabelText('Remove Files'));
+		await tick();
+		expect(document.querySelector('#nested-theme-select')).toBe(theme);
+		expect(theme.value).toBe('light');
+	});
 });
