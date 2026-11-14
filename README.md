@@ -386,11 +386,11 @@ Everything the mouse does works with a finger, on iOS Safari (15 and later) and 
 - **Resizing a split**: drag the line between two panes (its handle is 12 px wide).
 - **Moving a floating group**: drag the empty part of its tab bar; its edges and corners resize it.
 
-Tabs, split handles, a floating group's tab bar and its edges set `touch-action: none`, so a swipe
-there moves the tab, the handle or the group instead of scrolling the page, and the default theme
-makes tab titles unselectable (`user-select` and Safari's `-webkit-user-select`), so a long press
-lifts the tab rather than selecting its text. A theme of your own keeps those two properties on
-`.horizon-layout-tabgroup__tab`.
+Split handles, a floating group's tab bar and its edges set `touch-action: none` themselves, and
+the default theme sets it on tabs, so a swipe there moves the tab, the handle or the group instead
+of scrolling the page. The default theme also makes tab titles unselectable (`user-select` and
+Safari's `-webkit-user-select`), so a long press lifts the tab rather than selecting its text. A
+theme of your own keeps `touch-action` and both of those on `.horizon-layout-tabgroup__tab`.
 
 ---
 

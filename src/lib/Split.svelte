@@ -199,6 +199,7 @@ Internal to HorizonLayout, rendered by LayoutNode.
 						: ''}"
 					role="separator"
 					tabindex={0}
+					style:touch-action="none"
 					aria-label={translations.resizePane(i + 1)}
 					aria-controls={paneId(i)}
 					aria-orientation={handleOrientation}

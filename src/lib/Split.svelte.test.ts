@@ -87,6 +87,11 @@ describe('split resize handles', () => {
 		expect(primaryPane?.textContent).not.toContain('Body of c');
 	});
 
+	it('keep a finger dragging them from panning the page, whatever the theme', () => {
+		renderSplit();
+		expect(screen.getByRole('separator').style.touchAction).toBe('none');
+	});
+
 	it('follow a primary-button drag, until the pointer is released', async () => {
 		const state = renderSplit();
 		const handle = screen.getByRole('separator');
