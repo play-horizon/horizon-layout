@@ -48,6 +48,19 @@ Internal to HorizonLayout, rendered by LayoutNode for a docked group and by Floa
 		registerTabList: (config: TabGroupConfig, element: HTMLElement) => () => void;
 	} = $props();
 
+	// Focus stays on the tab list, which points at the active tab with `aria-activedescendant`
+	// (the WAI-ARIA tabs pattern's alternative to moving focus between the tabs): the layout
+	// focuses a group through its tab list, and the keyboard controls run there.
+	const uid = $props.id();
+	const panelId = `${uid}-panel`;
+	let activeTab = $derived(config.tabs[config.activeTabIndex]);
+	let hasTabPanel = $derived(!hideTabBar && activeTab !== undefined);
+
+	/** The id of the element of the tab at `index`, which the tab list and the panel refer to. */
+	function tabElementId(index: number): string {
+		return `${uid}-tab-${index}`;
+	}
+
 	function handleTabBarPointerDown(event: PointerEvent) {
 		if (!onMoveStart || !(event.target instanceof Element)) return;
 		if (event.target.closest(`[role="tab"], .${CSS.escape(baseClass)}__controls`)) return;
@@ -162,6 +175,9 @@ Internal to HorizonLayout, rendered by LayoutNode for a docked group and by Floa
 				tabindex={0}
 				class="{baseClass}__tabs"
 				style:touch-action={onMoveStart ? 'none' : undefined}
+				aria-activedescendant={activeTab === undefined
+					? undefined
+					: tabElementId(config.activeTabIndex)}
 				onkeydown={handleKeyDown}
 				{@attach (element) => registerTabList(config, element)}
 			>
@@ -183,16 +199,18 @@ Internal to HorizonLayout, rendered by LayoutNode for a docked group and by Floa
 							ondragleave={handleDragLeave}
 						></div>
 					{/if}
+					{@const isActive = index === config.activeTabIndex}
+					<!-- Not focusable itself: a press focuses the tab list around it, whose keys select tabs. -->
+					<!-- svelte-ignore a11y_interactive_supports_focus, a11y_click_events_have_key_events -->
 					<div
 						role="tab"
-						class="{baseClass}__tab{index === config.activeTabIndex
-							? ` ${baseClass}__tab--active`
-							: ''}"
-						tabindex={-1}
+						id={tabElementId(index)}
+						class="{baseClass}__tab{isActive ? ` ${baseClass}__tab--active` : ''}"
+						aria-selected={isActive}
+						aria-controls={isActive ? panelId : undefined}
 						draggable={!disableDrag}
 						ondragstart={(event) => startTabDrag(event, tabId)}
 						onclick={() => (config.activeTabIndex = index)}
-						onkeydown={null}
 					>
 						<span class="{baseClass}__tab-title">{tab?.title}</span>
 						<div class="{baseClass}__tab-controls">
@@ -235,8 +253,13 @@ Internal to HorizonLayout, rendered by LayoutNode for a docked group and by Floa
 	{/if}
 
 	<div class="{baseClass}__body">
-		<div class="{baseClass}__content">
-			{@render views.get(config.tabs[config.activeTabIndex]!)?.snippet()}
+		<div
+			class="{baseClass}__content"
+			role={hasTabPanel ? 'tabpanel' : undefined}
+			id={hasTabPanel ? panelId : undefined}
+			aria-labelledby={hasTabPanel ? tabElementId(config.activeTabIndex) : undefined}
+		>
+			{@render views.get(activeTab!)?.snippet()}
 		</div>
 	</div>
 
