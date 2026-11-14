@@ -284,7 +284,16 @@ actions and the popout bookkeeping live in their own modules.
 	/>
 {/snippet}
 
-<div class="app {themeClassMap[mainTheme]}">
+<!-- The theme is set on the body, which popout windows copy, so they show it too. -->
+<svelte:body
+	{@attach (body) => {
+		const themeClass = themeClassMap[mainTheme]!;
+		body.classList.add(themeClass);
+		return () => body.classList.remove(themeClass);
+	}}
+/>
+
+<div class="app">
 	<aside class="sidebar">
 		<div class="sidebar__column">
 			<header class="sidebar__brand">

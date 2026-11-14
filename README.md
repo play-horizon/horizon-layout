@@ -502,7 +502,7 @@ when panes or floating groups before them come or go.
 
 ## Popout windows
 
-Add a view id to `config.popouts` and HorizonLayout opens a new browser window with that view's content. The host page's stylesheets are mirrored into the window automatically. When the user closes the window, the id is removed from `config.popouts`, then `onPopoutClose` is called, so it can put the view back in the layout. Popout windows close with the page (at its `pagehide`), and when HorizonLayout is unmounted.
+Add a view id to `config.popouts` and HorizonLayout opens a new browser window with that view's content. The host page's stylesheets, and the theme and language of its `<html>` and `<body>` (their `class`, `lang`, `dir` and `data-*` attributes, and the CSS variables set in their inline style), are mirrored into the window, and followed as they change while it is open: a stylesheet added, changed or removed later, or a theme switched on `<html>` or `<body>`, reaches the window too. Put the theme class on `<html>` or `<body>` for popouts to show it (one on an element inside the page isn't copied). The rest of the page's state stays in the page: the other inline styles of `<body>`, such as the `pointer-events: none` or the scroll lock of an open modal, would freeze the window. Styles set only through the CSSOM (`insertRule`, `adoptedStyleSheets`) leave nothing in the DOM to copy. When the user closes the window, the id is removed from `config.popouts`, then `onPopoutClose` is called, so it can put the view back in the layout. Popout windows close with the page (at its `pagehide`), and when HorizonLayout is unmounted.
 
 ```ts
 // Open a popout programmatically:

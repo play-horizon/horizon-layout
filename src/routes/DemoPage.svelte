@@ -38,6 +38,7 @@ layout config.
 		{ name: 'index.ts', depth: 2 },
 		{ name: 'internal-types.ts', depth: 2 },
 		{ name: 'internal-utils.ts', depth: 2 },
+		{ name: 'popout-mirror.ts', depth: 2 },
 		{ name: 'reconcile.ts', depth: 2 },
 		{ name: 'translations.ts', depth: 2 },
 		{ name: 'types.ts', depth: 2 },

@@ -1,7 +1,7 @@
 /**
  * Component tests of HorizonLayout's popout windows, rendered in jsdom with `window.open`
- * stubbed: opening them, closing them from the config, from the window or by unmounting, and the
- * fallback for windows the browser blocks.
+ * stubbed: opening them, the page's styles and theme they follow, closing them from the config,
+ * from the window or by unmounting, and the fallback for windows the browser blocks.
  * @module
  */
 import { render } from '@testing-library/svelte';
@@ -92,6 +92,31 @@ describe('popouts', () => {
 		flushSync();
 
 		expect(popup.document.title).toBe('Renamed b');
+	});
+
+	it('follow the page styles and theme until they close', async () => {
+		const popup = new FakePopup();
+		stubOpen(popup);
+		const { state } = renderLayout({ root: { tabs: ['a'], activeTabIndex: 0 }, popouts: ['b'] });
+		const style = document.createElement('style');
+		style.textContent = '.late { color: red }';
+
+		try {
+			document.head.append(style);
+			document.documentElement.classList.add('light');
+			await settle();
+			expect(popup.document.head.querySelector('style')?.textContent).toBe('.late { color: red }');
+			expect(popup.document.documentElement.className).toBe('light');
+
+			state.config = { root: { tabs: ['a', 'b'], activeTabIndex: 0 } };
+			flushSync();
+			document.documentElement.classList.remove('light');
+			await settle();
+			expect(popup.document.documentElement.className).toBe('light');
+		} finally {
+			style.remove();
+			document.documentElement.removeAttribute('class');
+		}
 	});
 
 	it('close their window when the config drops them, without calling onPopoutClose', () => {

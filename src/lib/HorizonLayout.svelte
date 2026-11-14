@@ -1,10 +1,11 @@
 <!-- @component
 The docking layout, the library's public component. It renders `config` (a tree of splits and tab
-groups, the floating groups over it, a maximized view) through `LayoutNode` and `FloatingGroup`,
-and opens its popout windows with `PopoutContent`. It works on a validated copy of the bound
-`config`, written back after every change the user makes (held back while a tab is dragged), and
-owns what spans groups: dragging tabs, the built-in keyboard controls and the moves between
-groups they make, focus following a moved tab, and the popout windows' lifecycle.
+groups, the floating groups over it, a maximized view) through `LayoutNode` and `FloatingGroup`, and
+opens its popout windows with `PopoutContent`, styled like the page by `mirrorPage`. It works on a
+validated copy of the bound `config`, written back after every change the user makes (held back
+while a tab is dragged), and owns what spans groups: dragging tabs, the built-in keyboard controls
+and the moves between groups they make, focus following a moved tab, and the popout windows'
+lifecycle.
 -->
 <script lang="ts">
 	import { mount, onDestroy, tick, unmount, untrack, type Snippet } from 'svelte';
@@ -45,11 +46,13 @@ groups they make, focus following a moved tab, and the popout windows' lifecycle
 	import { reconcileConfig } from './reconcile.ts';
 	import { moveFloatingGroup, resizeFloatingGroup } from './floating.ts';
 	import { englishTranslations } from './translations.ts';
+	import { mirrorPage } from './popout-mirror.ts';
 
 	interface Popout {
 		window: Window;
 		mountedContent: Record<string, unknown>;
 		handleClose: () => void;
+		stopMirroring: () => void;
 	}
 
 	type Direction = 'left' | 'right' | 'up' | 'down';
@@ -1029,6 +1032,7 @@ groups they make, focus following a moved tab, and the popout windows' lifecycle
 		if (!popout) return;
 
 		popouts.delete(id);
+		popout.stopMirroring();
 		popout.window.removeEventListener('pagehide', popout.handleClose);
 		popout.window.removeEventListener('beforeunload', popout.handleClose);
 
@@ -1050,16 +1054,8 @@ groups they make, focus following a moved tab, and the popout windows' lifecycle
 			return;
 		}
 
-		// Mirror host-page styles so Svelte components render correctly in the new window.
-		for (const node of document.querySelectorAll<HTMLLinkElement | HTMLStyleElement>(
-			'link[rel~="stylesheet"], style'
-		)) {
-			const clone = node.cloneNode(true);
-			if (node instanceof HTMLLinkElement && clone instanceof HTMLLinkElement) {
-				clone.href = node.href;
-			}
-			popoutWindow.document.head.appendChild(clone);
-		}
+		// The page's styles and theme, followed as they change, so the view looks the same there.
+		const stopMirroring = mirrorPage(document, popoutWindow.document);
 
 		const mountedContent = mount(HorizonPopoutContent, {
 			target: popoutWindow.document.body,
@@ -1088,7 +1084,7 @@ groups they make, focus following a moved tab, and the popout windows' lifecycle
 			void tick().then(() => onPopoutClose?.(id));
 		};
 
-		popouts.set(id, { window: popoutWindow, mountedContent, handleClose });
+		popouts.set(id, { window: popoutWindow, mountedContent, handleClose, stopMirroring });
 		popoutWindow.addEventListener('pagehide', handleClose);
 		popoutWindow.addEventListener('beforeunload', handleClose);
 	}
