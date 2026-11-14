@@ -73,5 +73,14 @@ export interface KeyboardControls {
 	tabGroupControls?: KeyboardControl<TabGroupConfig>[];
 }
 
+// The text HorizonLayout writes itself. Its translations prop takes any of these keys, each one
+// left out being the English text of englishTranslations; an app that translates its interface
+// passes them all.
+export interface LayoutTranslations {
+	// Accessible name of the handle between two panes of a split, given the 1-based number of
+	// the pane before the handle (for example "Resize pane 1").
+	resizePane: (pane: number) => string;
+}
+
 // Used internally as an entry in nodeParentMap
 export type ParentEntry = { parent: SplitConfig; index: number };

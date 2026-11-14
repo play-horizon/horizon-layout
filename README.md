@@ -56,6 +56,9 @@ Requires Svelte 5 as a peer dependency.
 <HorizonLayout bind:config {views} />
 ```
 
+The layout's own text (accessible names) is English unless you pass `translations` (see
+[Translations](#translations)).
+
 ---
 
 ## `LayoutConfig`
@@ -113,25 +116,56 @@ Pass views as a `SvelteMap<Id, View>`. The map is reactive.
 
 ## `HorizonLayout` props
 
-| Prop                  | Type                    | Default            | Description                                                                                                                          |
-| --------------------- | ----------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `config`              | `LayoutConfig`          | _(required)_       | Bindable layout state.                                                                                                               |
-| `views`               | `SvelteMap<Id, View>`   | _(required)_       | Map from view id to its descriptor.                                                                                                  |
-| `tabgroupControls`    | `Snippet<[Id]>[]`       | `[]`               | Snippets rendered in every tab-group toolbar (receives active viewId).                                                               |
-| `disableResizeSplits` | `boolean`               | `false`            | Prevent the user from dragging resizers.                                                                                             |
-| `disableDragAndDrop`  | `boolean`               | `false`            | Prevent tab drag-and-drop.                                                                                                           |
-| `showSplitRatio`      | `boolean`               | `false`            | Show the current split ratio as a label while resizing.                                                                              |
-| `minWidthRatio`       | `number`                | `0.1`              | Minimum pane width as a fraction of its split container.                                                                             |
-| `minHeightRatio`      | `number`                | `0.2`              | Minimum pane height as a fraction of its split container.                                                                            |
-| `maxDepth`            | `number`                | `6`                | Maximum nesting depth (prevents infinite subdivision).                                                                               |
-| `hideTabBar`          | `boolean`               | `false`            | Hide the tab bar.                                                                                                                    |
-| `keyboardControls`    | `KeyboardControls`      | _(see below)_      | Override built-in keyboard shortcuts.                                                                                                |
-| `formatRatio`         | `(n: number) => string` | `"50.00%"`         | Format a split ratio for display.                                                                                                    |
-| `formatRatioForAria`  | `(n: number) => number` | `50.00`            | Format a split ratio for `aria-valuenow`.                                                                                            |
-| `onPopoutClose`       | `(id: Id) => void`      | —                  | Called when a popout window is closed by the user.                                                                                   |
-| `onPopoutBlocked`     | `(id: Id) => void`      | —                  | Called when the browser blocks a popout after the fallback timeout. If omitted, the tab is moved into the main layout automatically. |
-| `baseClass`           | `string`                | `"horizon-layout"` | Root CSS class and BEM prefix for all generated elements.                                                                            |
-| `skipValidation`      | `boolean`               | `false`            | Skip config validation on every update (use after pre-validating with `validateConfig`).                                             |
+| Prop                  | Type                          | Default               | Description                                                                                                                                                      |
+| --------------------- | ----------------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `config`              | `LayoutConfig`                | _(required)_          | Bindable layout state.                                                                                                                                           |
+| `views`               | `SvelteMap<Id, View>`         | _(required)_          | Map from view id to its descriptor.                                                                                                                              |
+| `translations`        | `Partial<LayoutTranslations>` | `englishTranslations` | The text the layout writes itself, in your app's language; each key left out is English (see [Translations](#translations)). Apps that translate pass every key. |
+| `tabgroupControls`    | `Snippet<[Id]>[]`             | `[]`                  | Snippets rendered in every tab-group toolbar (receives active viewId).                                                                                           |
+| `disableResizeSplits` | `boolean`                     | `false`               | Prevent the user from dragging resizers.                                                                                                                         |
+| `disableDragAndDrop`  | `boolean`                     | `false`               | Prevent tab drag-and-drop.                                                                                                                                       |
+| `showSplitRatio`      | `boolean`                     | `false`               | Show the current split ratio as a label while resizing.                                                                                                          |
+| `minWidthRatio`       | `number`                      | `0.1`                 | Minimum pane width as a fraction of its split container.                                                                                                         |
+| `minHeightRatio`      | `number`                      | `0.2`                 | Minimum pane height as a fraction of its split container.                                                                                                        |
+| `maxDepth`            | `number`                      | `6`                   | Maximum nesting depth (prevents infinite subdivision).                                                                                                           |
+| `hideTabBar`          | `boolean`                     | `false`               | Hide the tab bar.                                                                                                                                                |
+| `keyboardControls`    | `KeyboardControls`            | _(see below)_         | Override built-in keyboard shortcuts.                                                                                                                            |
+| `formatRatio`         | `(n: number) => string`       | `"50.00%"`            | Format a split ratio for display.                                                                                                                                |
+| `formatRatioForAria`  | `(n: number) => number`       | `50.00`               | Format a split ratio for `aria-valuenow`.                                                                                                                        |
+| `onPopoutClose`       | `(id: Id) => void`            | —                     | Called when a popout window is closed by the user.                                                                                                               |
+| `onPopoutBlocked`     | `(id: Id) => void`            | —                     | Called when the browser blocks a popout after the fallback timeout. If omitted, the tab is moved into the main layout automatically.                             |
+| `baseClass`           | `string`                      | `"horizon-layout"`    | Root CSS class and BEM prefix for all generated elements.                                                                                                        |
+| `skipValidation`      | `boolean`                     | `false`               | Skip config validation on every update (use after pre-validating with `validateConfig`).                                                                         |
+
+---
+
+## Translations
+
+The text HorizonLayout writes itself (accessible names) comes from the
+`translations` prop. The prop is optional: every key it leaves out, or the whole prop, falls back
+to the English text exported as `englishTranslations`, so a layout with no translations works in
+English. An app that translates its interface passes every key, from its i18n layer, so no English
+is left in another language:
+
+```svelte
+<HorizonLayout
+	bind:config
+	{views}
+	translations={{
+		resizePane: (pane) => m.resizePane({ pane })
+	}}
+/>
+```
+
+The keys, with their English default:
+
+```ts
+interface LayoutTranslations {
+	// Accessible name of the handle between two panes of a split, given the 1-based number of the
+	// pane before the handle: "Resize pane 1".
+	resizePane: (pane: number) => string;
+}
+```
 
 ---
 

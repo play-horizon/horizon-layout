@@ -6,6 +6,7 @@
 	import InteractionOptions from './InteractionOptions.svelte';
 	import ConstraintOptions from './ConstraintOptions.svelte';
 	import { ratioFormats, type RatioFormat } from './ratio-formats.js';
+	import { translations } from './translations.js';
 </script>
 
 <script lang="ts">
@@ -106,6 +107,7 @@
 			<HorizonLayout
 				bind:config={nestedConfig}
 				views={nestedViews}
+				{translations}
 				{showSplitRatio}
 				{disableResizeSplits}
 				{disableDragAndDrop}

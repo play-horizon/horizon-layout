@@ -4,6 +4,7 @@
 		Id,
 		KeyboardControls,
 		LayoutConfig,
+		LayoutTranslations,
 		NodeConfig,
 		ParentEntry,
 		SplitConfig,
@@ -24,6 +25,7 @@
 	import { DEFAULT_MIN_WIDTH_RATIO, DEFAULT_MIN_HEIGHT_RATIO } from './internal-utils.ts';
 	import { dropTargetType, roundSplitPoint } from './internal-utils.ts';
 	import type { DropTarget } from './internal-types.ts';
+	import { englishTranslations } from './translations.ts';
 
 	interface Popout {
 		window: Window;
@@ -44,6 +46,7 @@
 	let {
 		config = $bindable(),
 		views,
+		translations = {},
 		tabgroupControls = [],
 		disableResizeSplits = false,
 		disableDragAndDrop = false,
@@ -237,6 +240,12 @@
 		config: LayoutConfig;
 		/** Map from view Id to its View descriptor. */
 		views: SvelteMap<Id, View>;
+		/**
+		 * The text the layout writes itself (its accessible names), in the app's
+		 * language. Every key left out, or the whole prop, falls back to `englishTranslations`; an
+		 * app that translates its interface passes all of them.
+		 */
+		translations?: Partial<LayoutTranslations>;
 		/** Snippets rendered in every tab-group's toolbar (e.g. a maximise button). */
 		tabgroupControls?: Snippet<[Id]>[];
 		/** Prevent the user from dragging split dividers. */
@@ -275,6 +284,11 @@
 		 */
 		skipValidation?: boolean;
 	} = $props();
+
+	// Key by key, so a key passed as undefined falls back too.
+	let fullTranslations: LayoutTranslations = $derived({
+		resizePane: translations.resizePane ?? englishTranslations.resizePane
+	});
 
 	// The layout operates on a validated internal copy so that invalid external
 	// configs are caught at the boundary without corrupting the running state.
@@ -776,6 +790,7 @@
 				<HorizonLayoutNode
 					bind:config={internalConfig.root}
 					{views}
+					translations={fullTranslations}
 					{tabgroupControls}
 					{disableResizeSplits}
 					{disableDragAndDrop}

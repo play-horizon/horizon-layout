@@ -1,6 +1,13 @@
 <script lang="ts">
 	import type { SvelteMap } from 'svelte/reactivity';
-	import type { View, Id, SplitConfig, KeyboardControls, TabGroupConfig } from './types.ts';
+	import type {
+		View,
+		Id,
+		SplitConfig,
+		KeyboardControls,
+		LayoutTranslations,
+		TabGroupConfig
+	} from './types.ts';
 	import { getModifier } from './internal-utils.ts';
 	import HorizonLayoutNode from './LayoutNode.svelte';
 	import { type Snippet } from 'svelte';
@@ -9,6 +16,7 @@
 	let {
 		config = $bindable(),
 		views,
+		translations,
 		tabgroupControls,
 		disableResizeSplits,
 		disableDragAndDrop,
@@ -29,6 +37,7 @@
 	}: {
 		config: SplitConfig;
 		views: SvelteMap<Id, View>;
+		translations: LayoutTranslations;
 		tabgroupControls: Snippet<[Id]>[];
 		disableResizeSplits: boolean;
 		disableDragAndDrop: boolean;
@@ -133,6 +142,7 @@
 			<HorizonLayoutNode
 				bind:config={config.views[i]!}
 				{views}
+				{translations}
 				{tabgroupControls}
 				{disableResizeSplits}
 				{disableDragAndDrop}
@@ -167,7 +177,7 @@
 						: ''}"
 					role="slider"
 					tabindex={0}
-					aria-label="Resize pane {i + 1}"
+					aria-label={translations.resizePane(i + 1)}
 					aria-orientation={config.direction}
 					aria-valuemin={formatRatioForAria(constraints.min)}
 					aria-valuemax={formatRatioForAria(constraints.max)}

@@ -30,6 +30,7 @@
 	import type { ActionId } from './KeyboardControls.svelte';
 	import LayoutOptions from './LayoutOptions.svelte';
 	import { ratioFormats, type RatioFormat } from './ratio-formats.js';
+	import { translations } from './translations.js';
 
 	// ------------------------------------------------------------------ pages
 
@@ -778,6 +779,7 @@
 		<HorizonLayout
 			bind:config
 			{views}
+			{translations}
 			{showSplitRatio}
 			{disableResizeSplits}
 			{disableDragAndDrop}

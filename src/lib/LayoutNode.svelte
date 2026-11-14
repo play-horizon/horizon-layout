@@ -3,6 +3,7 @@
 	import type {
 		Id,
 		KeyboardControls,
+		LayoutTranslations,
 		SplitConfig,
 		View,
 		TabGroupConfig,
@@ -17,6 +18,7 @@
 	let {
 		config = $bindable(),
 		views,
+		translations,
 		tabgroupControls,
 		disableResizeSplits,
 		disableDragAndDrop,
@@ -37,6 +39,7 @@
 	}: {
 		config: NodeConfig;
 		views: SvelteMap<Id, View>;
+		translations: LayoutTranslations;
 		tabgroupControls: Snippet<[Id]>[];
 		disableResizeSplits: boolean;
 		disableDragAndDrop: boolean;
@@ -61,6 +64,7 @@
 	<HorizonSplit
 		bind:config={config as SplitConfig}
 		{views}
+		{translations}
 		{tabgroupControls}
 		{disableResizeSplits}
 		{disableDragAndDrop}
