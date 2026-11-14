@@ -1,3 +1,10 @@
+<!-- @component
+A tab group: its tab bar (the tab list, each tab's controls and the group's shared controls) and
+the active tab's view. The tab list takes the focus and runs the tab-group keyboard controls; tabs
+drag out with HTML5 drag and drop, and while a tab is dragged the group shows drop zones (between
+its tabs, and on its four sides to split it) and reports the one under the pointer to the layout.
+Internal to HorizonLayout, rendered by LayoutNode for a docked group and by FloatingGroup.
+-->
 <script lang="ts">
 	import type { Id, KeyboardControl, TabGroupConfig, View } from './types.ts';
 	import { onDestroy, untrack, type Snippet } from 'svelte';

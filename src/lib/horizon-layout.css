@@ -1,3 +1,9 @@
+/*
+ * The default theme of HorizonLayout, exported as `horizon-layout/horizon-layout.css`: colour and
+ * size variables (`--hl-*`, dark by default, light under `.light`) and the rules that style the
+ * BEM classes the components emit under the default `baseClass`. The components carry only the
+ * inline styles they need to work; everything visual is here, and an app may replace it whole.
+ */
 :root {
 	--hl-background: #111624;
 	--hl-foreground: #f1f5f9;

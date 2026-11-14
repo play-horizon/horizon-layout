@@ -1,3 +1,8 @@
+<!-- @component
+One node of the docked layout tree: a Split or a TabGroup, depending on the node's config, with
+the layout's settings passed down to it. Internal to HorizonLayout, which renders the root node;
+Split renders one for each of its panes.
+-->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import type {

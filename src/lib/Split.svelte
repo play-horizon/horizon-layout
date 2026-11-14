@@ -1,3 +1,8 @@
+<!-- @component
+A split: its panes side by side (`horizontal`) or stacked (`vertical`), each a LayoutNode, with a
+resize handle (`role="slider"`) between each two of them, moved with the pointer or the split
+keyboard controls, and an optional ratio label. Internal to HorizonLayout, rendered by LayoutNode.
+-->
 <script lang="ts">
 	import type { SvelteMap } from 'svelte/reactivity';
 	import type {
