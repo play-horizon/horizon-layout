@@ -130,9 +130,10 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       # Publish before tagging: the tag marks the version as released, so a failed publish
-      # must leave no tag behind, or the next run would skip it.
+      # must leave no tag behind, or the next run would skip it. The path starts with `./`, as
+      # npm reads `package/<file>` as a GitHub repository (`<owner>/<repo>`).
       - name: Publish to npm
-        run: npm publish "package/horizon-layout-${{ needs.package.outputs.version }}.tgz" --provenance --ignore-scripts
+        run: npm publish "./package/horizon-layout-${{ needs.package.outputs.version }}.tgz" --provenance --ignore-scripts
 
       - name: Create GitHub release
         run: >-
