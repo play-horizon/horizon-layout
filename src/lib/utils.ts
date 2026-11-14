@@ -166,6 +166,10 @@ export function validateConfig<V>(
 	if (config.maximizedView && !views.has(config.maximizedView)) {
 		throw new Error(`config.maximizedView: unknown view id "${config.maximizedView}"`);
 	}
+	// A popout's window already shows the view: maximizing it too would render it twice.
+	if (config.maximizedView && config.popouts?.includes(config.maximizedView)) {
+		throw new Error(`config.maximizedView: view "${config.maximizedView}" is in a popout`);
+	}
 
 	// A view is shown in one place: one tab, docked or floating, or one popout.
 	const seenIds = new Set<Id>();

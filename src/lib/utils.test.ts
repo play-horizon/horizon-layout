@@ -252,6 +252,12 @@ describe('validateConfig', () => {
 		);
 	});
 
+	it('rejects maximizing a view that is in a popout', () => {
+		expect(() => validateConfig({ maximizedView: 'a', popouts: ['a'] }, views)).toThrow(
+			'config.maximizedView: view "a" is in a popout'
+		);
+	});
+
 	it('accepts ids whose view value is falsy', () => {
 		const falsyViews = new Map([
 			['a', 0],
