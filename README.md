@@ -30,6 +30,7 @@ Requires Svelte 5.29 or later (the version that added `{@attach}`) as a peer dep
 ```svelte
 <script lang="ts">
 	import { HorizonLayout } from 'horizon-layout';
+	import 'horizon-layout/horizon-layout.css'; // the default theme, see Styling
 	import { SvelteMap } from 'svelte/reactivity';
 	import type { LayoutConfig } from 'horizon-layout';
 
@@ -70,12 +71,16 @@ interface LayoutConfig {
 	root?: NodeConfig; // omit (or set to undefined) to render an empty layout
 	floating?: FloatingGroupConfig[]; // tab groups floating over the layout, bottom to top
 	maximizedView?: Id; // when set, this view fills the whole container
-	popouts?: Id[]; // views opened in detached browser tabs
+	popouts?: Id[]; // views opened in their own browser windows
 }
 ```
 
 A view is shown in one place only: one tab (docked or floating) or one popout. `validateConfig`
-rejects a config that names a view twice.
+rejects a config that names a view twice, or that maximizes a view that is in a popout.
+
+HorizonLayout validates every `config` it is given (see [`validateConfig`](#validateconfig)). An
+invalid one renders an empty layout and logs the problem with `console.error`, and the bound
+`config` is left as it is.
 
 ### `NodeConfig`
 
@@ -139,9 +144,9 @@ Pass views as a `SvelteMap<Id, View>`. The map is reactive.
 | `disableResizeSplits` | `boolean`                     | `false`               | Prevent the user from dragging resizers.                                                                                                                         |
 | `disableDragAndDrop`  | `boolean`                     | `false`               | Prevent tab drag-and-drop.                                                                                                                                       |
 | `showSplitRatio`      | `boolean`                     | `false`               | Show the current split ratio as a label while resizing.                                                                                                          |
-| `minWidthRatio`       | `number`                      | `0.1`                 | Minimum pane width as a fraction of its split container.                                                                                                         |
-| `minHeightRatio`      | `number`                      | `0.2`                 | Minimum pane height as a fraction of its split container.                                                                                                        |
-| `maxDepth`            | `number`                      | `6`                   | Maximum nesting depth (prevents infinite subdivision).                                                                                                           |
+| `minWidthRatio`       | `number`                      | `0.1`                 | Minimum pane width as a fraction of its split container, from 0 to 0.5.                                                                                          |
+| `minHeightRatio`      | `number`                      | `0.2`                 | Minimum pane height as a fraction of its split container, from 0 to 0.5.                                                                                         |
+| `maxDepth`            | `number`                      | `6`                   | Maximum nesting depth, at least 1 (prevents infinite subdivision).                                                                                               |
 | `hideTabBar`          | `boolean`                     | `false`               | Hide the tab bar.                                                                                                                                                |
 | `keyboardControls`    | `KeyboardControls`            | _(see below)_         | Override built-in keyboard shortcuts.                                                                                                                            |
 | `formatRatio`         | `(n: number) => string`       | `"50.00%"`            | Format a split ratio for display.                                                                                                                                |
@@ -189,9 +194,41 @@ interface LayoutTranslations {
 
 ---
 
+## Styling
+
+HorizonLayout renders plain elements with BEM classes (below) and sets inline only the styles its
+logic depends on (the splits' flex layout and pane sizes, the floating groups' place, size and
+stacking, and their resize handles). Everything else comes from a stylesheet: import the
+package's default theme,
+
+```ts
+import 'horizon-layout/horizon-layout.css';
+```
+
+or write your own for the classes below. The default theme holds both the structure a layout
+needs (pane overflow, the resizer handles' hit areas, the drop zones) and its look, and styles the
+default `baseClass` only. Its colours and sizes are CSS custom properties set on `:root` (dark
+values) and on `.light` (light values, applied inside any element with the `light` class);
+override them to restyle it:
+
+| Variable                                     | Used for                                                                |
+| -------------------------------------------- | ----------------------------------------------------------------------- |
+| `--hl-background`, `--hl-foreground`         | The layout's and the popouts' background and text, the tab bars         |
+| `--hl-card`                                  | Tab groups and their content                                            |
+| `--hl-secondary`, `--hl-accent`              | The active tab, and the active tab of a focused tab list                |
+| `--hl-tab-inactive-color`                    | The titles of inactive tabs                                             |
+| `--hl-muted-foreground`                      | The title of a hovered tab                                              |
+| `--hl-border`                                | Borders                                                                 |
+| `--hl-primary`                               | Resizer handles, the split ratio label's text, the tab insertion marker |
+| `--hl-ring`                                  | Focus outlines                                                          |
+| `--hl-popover`, `--hl-glass-blur`            | The split ratio label's background and its backdrop blur                |
+| `--hl-drop-hint-border`, `--hl-drop-hint-bg` | The hint of the pane a dragged tab would split                          |
+| `--hl-floating-shadow`                       | A floating group's shadow                                               |
+| `--hl-radius`                                | The corner radius of tabs, drop hints and floating groups               |
+
 ## CSS classes
 
-HorizonLayout ships no styles. All elements receive BEM classes derived from `baseClass` (`"horizon-layout"` by default).
+All elements receive BEM classes derived from `baseClass` (`"horizon-layout"` by default).
 
 | Class                                                              | Element                                                       |
 | ------------------------------------------------------------------ | ------------------------------------------------------------- |
@@ -213,7 +250,7 @@ HorizonLayout ships no styles. All elements receive BEM classes derived from `ba
 | `.horizon-layout-split__resizer--active`                           | Added while the resizer is focused/dragged                    |
 | `.horizon-layout-split__resizer-handle`                            | Focusable slider handle inside the resizer                    |
 | `.horizon-layout-split__resizer-handle--horizontal` / `--vertical` | Direction modifier on handle                                  |
-| `.horizon-layout-split__resizer-handle--active`                    | Added while dragging                                          |
+| `.horizon-layout-split__resizer-handle--active`                    | Added while the resizer is focused/dragged                    |
 | `.horizon-layout-split__ratio`                                     | Floating ratio label (visible when `showSplitRatio`)          |
 | `.horizon-layout-split__ratio--horizontal` / `--vertical`          | Direction modifier on ratio label                             |
 | `.horizon-layout-split__ratio--active`                             | Added while the matching resizer is active                    |
@@ -222,9 +259,6 @@ HorizonLayout ships no styles. All elements receive BEM classes derived from `ba
 | `.horizon-layout-tabgroup__tabs`                                   | Tab list (`role="tablist"`)                                   |
 | `.horizon-layout-tabgroup__tab`                                    | Individual tab                                                |
 | `.horizon-layout-tabgroup__tab--active`                            | Active tab modifier                                           |
-| `.horizon-layout-tabgroup__tab--hover`                             | Added on tab hover                                            |
-| `.horizon-layout-tabgroup__tab-accent`                             | Colored top accent bar on the active tab                      |
-| `.horizon-layout-tabgroup__tab-active-fill`                        | Bottom fill that blends the active tab into the content area  |
 | `.horizon-layout-tabgroup__tab-title`                              | Tab label text                                                |
 | `.horizon-layout-tabgroup__tab-controls`                           | Container for per-tab snippets                                |
 | `.horizon-layout-tabgroup__tab-control`                            | Individual per-tab control wrapper                            |
@@ -280,6 +314,8 @@ HorizonLayout ships no styles. All elements receive BEM classes derived from `ba
 | `Alt + ←/↑/→/↓`    | Split active tab out into a new pane in that direction |
 | `Escape`           | Unselect/Blur the tab list                             |
 
+A docked group's active tab is split out only when the group has two tabs or more.
+
 In a floating group's tab list, the moves between groups dock the active tab instead:
 `Ctrl + ←/↑/→/↓` moves it into the docked group on that side of the layout, `Alt + ←/↑/→/↓` makes
 it a new pane on that side of the layout, and `Ctrl + Home/End` moves it into the first/last docked
@@ -298,7 +334,8 @@ The keys work on the focused frame itself, not on its tab list or its content.
 | `Alt + Shift + arrow` | Resize it by 50 px             |
 | `Escape`              | Blur the frame                 |
 
-Pass `keyboardControls` to override any subset of these.
+Modifiers match exactly: a shortcut without one only runs when none of Ctrl, Alt and Shift is
+held. Meta (Command) is ignored. Pass `keyboardControls` to override any subset of these.
 
 ---
 
@@ -337,18 +374,20 @@ if (raw) {
 	try {
 		config = parseLayoutConfig(JSON.parse(raw));
 	} catch (e) {
-		console.warn('Invalid saved layout:', e.message);
+		console.warn('Invalid saved layout:', (e as Error).message);
 	}
 }
 ```
 
-`parseLayoutConfig` only checks the structure, it does not validate that the config is valid. Run `validateConfig` afterwards if you need that guarantee.
+The error names the faulty field by its path, for example
+`config.root.views[0].tabs: expected a non-empty array`. Empty `floating` and `popouts` arrays are
+dropped. `parseLayoutConfig` only checks the structure, it does not validate that the config is valid. Run `validateConfig` afterwards if you need that guarantee.
 
 ---
 
 ## `validateConfig`
 
-Validate a `LayoutConfig` before passing it to `HorizonLayout`. Throws an `Error` describing the first problem found if the config is invalid, and returns nothing.
+Validate a `LayoutConfig` before passing it to `HorizonLayout`. Throws an `Error` describing the first problem found if the config is invalid, and returns nothing. It checks that every id names a view of `views`, that no view is shown twice, that every `activeTabIndex` is the index of a tab, that every split has two views or more and split points that leave each pane its minimum ratio, that every floating `rect` has finite numbers and a positive size, and that the maximized view isn't in a popout. The error names the faulty field by its path, for example `config.root.views[1].activeTabIndex: expected an integer from 0 to 2, the index of a tab`.
 
 ```ts
 import { validateConfig } from 'horizon-layout';
@@ -360,7 +399,7 @@ try {
 	});
 	// safe to pass to HorizonLayout, optionally with skipValidation
 } catch (e) {
-	console.error(e.message);
+	console.error((e as Error).message);
 }
 ```
 
@@ -369,6 +408,28 @@ Pass `skipValidation` to `HorizonLayout` once you have confirmed the config is v
 ```svelte
 <HorizonLayout bind:config {views} skipValidation />
 ```
+
+---
+
+## Helpers
+
+Every helper is exported from `horizon-layout`, with a doc comment your editor shows.
+
+| Helper                                                                       | What it does                                                                          |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `parseLayoutConfig(value)`                                                   | Parses an unknown value into a `LayoutConfig` (see above).                            |
+| `validateConfig(config, views, options?)`                                    | Throws when `config` can't be shown (see above).                                      |
+| `cloneConfig(config)`                                                        | A deep copy that shares no object with `config`.                                      |
+| `areConfigsEquivalent(a, b)`                                                 | Whether two configs describe the same layout (popouts in any order).                  |
+| `findTabGroup(config, id)`                                                   | The tab group, docked or floating, that has the view as a tab.                        |
+| `floatView(config, id, rect)`, `removeView(config, id)`                      | Float a view, take it out of the layout (see [Floating panels](#floating-panels)).    |
+| `nodeConfigType(node)`                                                       | `'split'` or `'tabGroup'`.                                                            |
+| `buildNodeParentMap(root)`                                                   | A map from every node under `root` to the split holding it and its index there.       |
+| `simplifyTabGroup(group, parents, config)`                                   | Removes an emptied tab group and collapses the splits it leaves with one child.       |
+| `moveFloatingGroup(group, dx, dy, bounds)`                                   | Moves a floating group, keeping it inside the layout (for custom `floatingControls`). |
+| `resizeFloatingGroup(group, dw, dh, bounds)`                                 | Resizes a floating group from its bottom-right corner, keeping it inside the layout.  |
+| `clampFloatingRect(rect, bounds)`, `resizedRect(rect, edge, dx, dy, bounds)` | The rect a floating group is shown at, and a rect resized by one of its edges.        |
+| `FLOATING_MIN_WIDTH`, `FLOATING_MIN_HEIGHT`                                  | The smallest size a floating group is shown at (160 × 96 px).                         |
 
 ---
 
@@ -402,9 +463,9 @@ function showDocs() {
 ```
 
 `removeView(config, id)` takes a view out of the layout (its tab group, `popouts` and
-`maximizedView`), removing the groups and splits it leaves empty. All three change `config` in
-place; panels that stay in the same split (or float on) stay mounted, even when panes or floating
-groups before them come or go.
+`maximizedView`), removing the groups and splits it leaves empty. `floatView` and `removeView`
+change `config` in place; panels that stay in the same split (or float on) stay mounted, even
+when panes or floating groups before them come or go.
 
 ---
 
