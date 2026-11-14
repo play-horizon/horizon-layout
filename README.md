@@ -376,6 +376,24 @@ system's. Pass `keyboardControls` to override any subset of these.
 
 ---
 
+## Touch screens
+
+Everything the mouse does works with a finger, on iOS Safari (15 and later) and Chrome on Android:
+
+- **Moving a tab**: long press a tab to lift it, then drag it onto a tab bar or the side of a pane,
+  as with a mouse. This is the browser's own drag and drop, which starts on a long press on a
+  touch screen; a short tap selects the tab. `disableDragAndDrop` turns it off.
+- **Resizing a split**: drag the line between two panes (its handle is 12 px wide).
+- **Moving a floating group**: drag the empty part of its tab bar; its edges and corners resize it.
+
+Tabs, split handles, a floating group's tab bar and its edges set `touch-action: none`, so a swipe
+there moves the tab, the handle or the group instead of scrolling the page, and the default theme
+makes tab titles unselectable (`user-select` and Safari's `-webkit-user-select`), so a long press
+lifts the tab rather than selecting its text. A theme of your own keeps those two properties on
+`.horizon-layout-tabgroup__tab`.
+
+---
+
 ## Custom keyboard controls
 
 ```ts
