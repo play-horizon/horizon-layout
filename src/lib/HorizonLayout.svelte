@@ -1,3 +1,11 @@
+<!-- @component
+The docking layout, the library's public component. It renders `config` (a tree of splits and tab
+groups, the floating groups over it, a maximized view) through `LayoutNode` and `FloatingGroup`,
+and opens its popout windows with `PopoutContent`. It works on a validated copy of the bound
+`config`, written back after every change the user makes (held back while a tab is dragged), and
+owns what spans groups: dragging tabs, the built-in keyboard controls and the moves between
+groups they make, focus following a moved tab, and the popout windows' lifecycle.
+-->
 <script lang="ts">
 	import { mount, onMount, tick, unmount, untrack, type Snippet } from 'svelte';
 	import type {
@@ -451,6 +459,8 @@
 		return true;
 	}
 
+	// Moves split point `index` to `ratio`, kept between its neighbours with the minimum pane size
+	// on each side, and rounded to the stored precision.
 	function moveSplit(split: SplitConfig, index: number, ratio: number) {
 		const minRatio = split.direction === 'horizontal' ? minWidthRatio : minHeightRatio;
 		const min = (split.splitPoints[index - 1] ?? 0) + minRatio;
@@ -463,7 +473,7 @@
 		if (index !== tabGroup.activeTabIndex) tabGroup.activeTabIndex = index;
 	}
 
-	// Move the active tab to targetIndex, keeping focus on the moved tab.
+	// Moves the active tab to targetIndex within its group, keeping it the active tab.
 	function moveTabToIndex(tabGroup: TabGroupConfig, targetIndex: number) {
 		if (targetIndex === tabGroup.activeTabIndex) return;
 		const [tab] = tabGroup.tabs.splice(tabGroup.activeTabIndex, 1);
@@ -573,6 +583,7 @@
 		findClosestTabGroupAndMoveTab(tabGroup);
 	}
 
+	// The middle of the pane at `parent.index` of its split, as a split point.
 	function paneMidpoint(parent: ParentEntry): number {
 		return (
 			((parent.parent.splitPoints[parent.index - 1] ?? 0) +
@@ -587,6 +598,8 @@
 		return 1 + Math.max(...(node as SplitConfig).views.map(treeDepth));
 	}
 
+	// Whether `tabGroup` can be split in two along `splitDirection`: within its parent split, when
+	// each half keeps the minimum pane size; in a new nested split, when maxDepth allows one.
 	function canSplitTabGroup(tabGroup: TabGroupConfig, splitDirection: SplitConfig['direction']) {
 		const parent = nodeParentMap.get(tabGroup);
 		if (parent?.parent.direction === splitDirection) {
@@ -757,6 +770,7 @@
 	// from, and the frame that takes the tab out of its group until that frame has run.
 	let tabDrag: { source: EventTarget; startFrame: number | null } | null = null;
 
+	// Starts the drag of `tabId` from `tabGroup`, at the tab's dragstart.
 	function onStartTabDrag(event: DragEvent, tabGroup: TabGroupConfig, tabId: Id) {
 		// A new drag means the one before has ended, even if its end never reached us.
 		endTabDrag();
@@ -928,6 +942,8 @@
 		}
 	}
 
+	// Once a frame while a popout is blocked: retries opening it, or gives up on it once it has
+	// been blocked for POPOUT_BLOCKED_TIMEOUT_MS.
 	function retryPendingPopouts() {
 		const now = Date.now();
 		// A copy: a retry blocked again adds its id back, which a live iteration would visit
@@ -983,6 +999,8 @@
 		};
 	});
 
+	// Forgets the popout window of `id` and unmounts its content; closes the window too unless the
+	// user is closing it (`closeWindow` false).
 	function cleanupPopout(id: Id, closeWindow: boolean) {
 		const popout = popouts.get(id);
 		if (!popout) return;
@@ -998,6 +1016,8 @@
 		}
 	}
 
+	// Opens the popout window of `id`, or records it as blocked (since `blockedSince` when it
+	// already was) when the browser refuses the window.
 	function openPopout(id: Id, view: View, blockedSince?: number) {
 		if (popouts.has(id) || pendingPopouts.has(id)) return;
 

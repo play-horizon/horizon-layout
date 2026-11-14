@@ -1,3 +1,8 @@
+/**
+ * Unit tests of the internal helpers: keyboard modifiers, drop target kinds and split-point
+ * rounding.
+ * @module
+ */
 import { describe, expect, it } from 'vitest';
 import { dropTargetType, getModifier, roundSplitPoint } from './internal-utils.ts';
 

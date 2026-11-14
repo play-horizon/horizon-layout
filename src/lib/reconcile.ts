@@ -34,8 +34,10 @@ export function reconcileConfig(target: LayoutConfig, source: LayoutConfig): voi
 	if (!sameItems(target.popouts ?? [], copy.popouts ?? [])) target.popouts = copy.popouts;
 }
 
-/// Brings `target` to `source`, both of the same kind; `source` is a private copy whose nodes
-/// may be moved into `target`.
+/**
+ * Brings `target` to `source`, both of the same kind; `source` is a private copy whose nodes
+ * may be moved into `target`.
+ */
 function reconcileNode(target: NodeConfig, source: NodeConfig): void {
 	if (nodeConfigType(target) === 'tabGroup') {
 		reconcileTabGroup(target as TabGroupConfig, source as TabGroupConfig);
