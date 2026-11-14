@@ -1,11 +1,12 @@
 /**
  * Component tests of HorizonLayout, rendered in jsdom through `LayoutHarness` (src/test): what it
- * renders, its accessible names, and how it applies config changes.
+ * renders, its accessible names, how it applies config changes and rejects invalid ones, and its
+ * built-in keyboard controls on docked tab groups and split handles, focus following moved tabs.
  * @module
  */
 import { fireEvent, render, screen } from '@testing-library/svelte';
-import { flushSync } from 'svelte';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { flushSync, tick } from 'svelte';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import LayoutHarness from '../test/LayoutHarness.svelte';
 import { mounts } from '../test/ViewBody.svelte';
 import { removeView } from './utils.ts';
@@ -43,6 +44,7 @@ function renderLayout(initial: LayoutConfig, keyboardControls?: KeyboardControls
 }
 
 beforeEach(() => mounts.clear());
+afterEach(() => vi.restoreAllMocks());
 
 describe('HorizonLayout', () => {
 	it('renders the active tab of each group', () => {
@@ -97,6 +99,140 @@ describe('HorizonLayout', () => {
 
 		await fireEvent.keyDown(screen.getByRole('slider'), { key: 'ArrowRight' });
 		expect((state.config.root as SplitConfig).splitPoints).toEqual([0.5]);
+	});
+
+	it('renders nothing for an invalid config, logging why, until a valid one comes', () => {
+		const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const state = renderLayout({ root: { tabs: ['a', 'z'], activeTabIndex: 0 } });
+
+		expect(screen.queryByRole('tablist')).toBeNull();
+		expect(error).toHaveBeenCalledWith('HorizonLayout: config.root.tabs[1]: unknown view id "z"');
+
+		state.config = twoPanes();
+		flushSync();
+		expect(screen.getAllByRole('tablist')).toHaveLength(2);
+	});
+});
+
+/** Presses `key` (with `modifiers`) on the tab list of the docked group at `index`. */
+async function pressOnTabList(index: number, key: string, modifiers: KeyboardEventInit = {}) {
+	await fireEvent.keyDown(screen.getAllByRole('tablist')[index]!, { key, ...modifiers });
+	await tick();
+}
+
+function rootOf(state: { config: LayoutConfig }) {
+	return state.config.root as SplitConfig;
+}
+
+describe('the built-in tab group controls', () => {
+	it('select the next and previous tab, wrapping, and the first and last', async () => {
+		const state = renderLayout(twoPanes());
+		const group = () => rootOf(state).views[0] as TabGroupConfig;
+
+		await pressOnTabList(0, 'ArrowLeft');
+		expect(group().activeTabIndex).toBe(1);
+		await pressOnTabList(0, 'ArrowDown');
+		expect(group().activeTabIndex).toBe(0);
+		await pressOnTabList(0, 'End');
+		expect(group().activeTabIndex).toBe(1);
+		await pressOnTabList(0, 'Home');
+		expect(group().activeTabIndex).toBe(0);
+	});
+
+	it('reorder the active tab with Shift', async () => {
+		const state = renderLayout(twoPanes());
+
+		await pressOnTabList(0, 'ArrowRight', { shiftKey: true });
+		expect(rootOf(state).views[0]).toEqual({ tabs: ['b', 'a'], activeTabIndex: 1 });
+		await pressOnTabList(0, 'Home', { shiftKey: true });
+		expect(rootOf(state).views[0]).toEqual({ tabs: ['a', 'b'], activeTabIndex: 0 });
+	});
+
+	it('move the active tab to the group on that side with Ctrl+Arrow, focus following', async () => {
+		const state = renderLayout(twoPanes());
+
+		await pressOnTabList(0, 'ArrowRight', { ctrlKey: true });
+		await tick();
+
+		expect(rootOf(state).views).toEqual([
+			{ tabs: ['b'], activeTabIndex: 0 },
+			{ tabs: ['c', 'a'], activeTabIndex: 1 }
+		]);
+		expect(document.activeElement).toBe(screen.getAllByRole('tablist')[1]);
+	});
+
+	it('do nothing with Ctrl+Arrow towards a side with no group', async () => {
+		const state = renderLayout(twoPanes());
+		await pressOnTabList(0, 'ArrowLeft', { ctrlKey: true });
+		await pressOnTabList(0, 'ArrowUp', { ctrlKey: true });
+		expect(state.config).toEqual(twoPanes());
+	});
+
+	it('move the active tab to the first group with Ctrl+Home, removing the group it empties', async () => {
+		const state = renderLayout(twoPanes());
+
+		await pressOnTabList(1, 'Home', { ctrlKey: true });
+		await tick();
+
+		expect(state.config.root).toEqual({ tabs: ['a', 'b', 'c'], activeTabIndex: 2 });
+		expect(document.activeElement).toBe(screen.getByRole('tablist'));
+	});
+
+	it('split the active tab out into the split it is in with Alt+Arrow, halving the group', async () => {
+		const state = renderLayout(twoPanes());
+
+		await pressOnTabList(0, 'ArrowRight', { altKey: true });
+		await tick();
+
+		expect(state.config.root).toEqual({
+			direction: 'horizontal',
+			views: [
+				{ tabs: ['b'], activeTabIndex: 0 },
+				{ tabs: ['a'], activeTabIndex: 0 },
+				{ tabs: ['c'], activeTabIndex: 0 }
+			],
+			splitPoints: [0.25, 0.5]
+		});
+		expect(document.activeElement).toBe(screen.getAllByRole('tablist')[1]);
+	});
+
+	it('split the active tab out into a new nested split along the other axis', async () => {
+		const state = renderLayout(twoPanes());
+
+		await pressOnTabList(0, 'ArrowUp', { altKey: true });
+		await tick();
+
+		expect(rootOf(state).views[0]).toEqual({
+			direction: 'vertical',
+			views: [
+				{ tabs: ['a'], activeTabIndex: 0 },
+				{ tabs: ['b'], activeTabIndex: 0 }
+			],
+			splitPoints: [0.5]
+		});
+		expect(document.activeElement).toBe(screen.getAllByRole('tablist')[0]);
+	});
+
+	it('don’t split a group with a single tab', async () => {
+		const state = renderLayout(twoPanes());
+		await pressOnTabList(1, 'ArrowLeft', { altKey: true });
+		expect(state.config).toEqual(twoPanes());
+	});
+});
+
+describe('the built-in split handle controls', () => {
+	it('move the handle by 1 %, 10 % with Shift, and to its limits with Home and End', async () => {
+		const state = renderLayout(twoPanes());
+		const handle = screen.getByRole('slider');
+
+		await fireEvent.keyDown(handle, { key: 'ArrowRight' });
+		expect(rootOf(state).splitPoints).toEqual([0.51]);
+		await fireEvent.keyDown(handle, { key: 'ArrowUp', shiftKey: true });
+		expect(rootOf(state).splitPoints).toEqual([0.41]);
+		await fireEvent.keyDown(handle, { key: 'End' });
+		expect(rootOf(state).splitPoints).toEqual([0.9]);
+		await fireEvent.keyDown(handle, { key: 'Home' });
+		expect(rootOf(state).splitPoints).toEqual([0.1]);
 	});
 });
 
