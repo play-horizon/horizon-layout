@@ -7,7 +7,7 @@ owns what spans groups: dragging tabs, the built-in keyboard controls and the mo
 groups they make, focus following a moved tab, and the popout windows' lifecycle.
 -->
 <script lang="ts">
-	import { mount, onMount, tick, unmount, untrack, type Snippet } from 'svelte';
+	import { mount, onDestroy, tick, unmount, untrack, type Snippet } from 'svelte';
 	import type {
 		FloatingControlData,
 		FloatingGroupConfig,
@@ -935,7 +935,8 @@ groups they make, focus following a moved tab, and the popout windows' lifecycle
 		}
 	});
 
-	// Close all popout windows when the base window closes or the component is unmounted.
+	// Close all popout windows when the base window closes (at its pagehide: a beforeunload can
+	// still be cancelled) or the component is unmounted.
 	function closeAllPopouts() {
 		for (const id of popouts.keys()) {
 			cleanupPopout(id, true);
@@ -987,16 +988,10 @@ groups they make, focus following a moved tab, and the popout windows' lifecycle
 		internalConfig.popouts = remaining.length ? remaining : undefined;
 	}
 
-	onMount(() => {
-		window.addEventListener('beforeunload', closeAllPopouts);
-		window.addEventListener('pagehide', closeAllPopouts);
-		return () => {
-			window.removeEventListener('beforeunload', closeAllPopouts);
-			window.removeEventListener('pagehide', closeAllPopouts);
-			if (retryRafId !== null) cancelAnimationFrame(retryRafId);
-			closeAllPopouts();
-			stopTabDrag();
-		};
+	onDestroy(() => {
+		if (retryRafId !== null) cancelAnimationFrame(retryRafId);
+		closeAllPopouts();
+		stopTabDrag();
 	});
 
 	// Forgets the popout window of `id` and unmounts its content; closes the window too unless the
@@ -1070,6 +1065,8 @@ groups they make, focus following a moved tab, and the popout windows' lifecycle
 		popoutWindow.addEventListener('beforeunload', handleClose);
 	}
 </script>
+
+<svelte:window onpagehide={closeAllPopouts} />
 
 <div
 	class={baseClass}

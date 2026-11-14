@@ -147,6 +147,19 @@ describe('popouts', () => {
 		expect(open).toHaveBeenCalledTimes(1);
 	});
 
+	it('close their window when the page is hidden, not when its unload may still be cancelled', () => {
+		const popup = new FakePopup();
+		stubOpen(popup);
+		const { state } = renderLayout({ root: { tabs: ['a'], activeTabIndex: 0 }, popouts: ['b'] });
+
+		window.dispatchEvent(new Event('beforeunload'));
+		expect(popup.closed).toBe(false);
+
+		window.dispatchEvent(new Event('pagehide'));
+		expect(popup.closed).toBe(true);
+		expect(state.config.popouts).toEqual(['b']);
+	});
+
 	it('open once the browser lets a blocked window open within 500 ms', () => {
 		vi.useFakeTimers();
 		const popup = new FakePopup();
