@@ -37,8 +37,30 @@ export interface TabGroupConfig {
 
 export type NodeConfig = SplitConfig | TabGroupConfig;
 
+// A width and a height, in CSS pixels.
+export interface Size {
+	width: number;
+	height: number;
+}
+
+// Where a floating group is, in CSS pixels from the layout's top-left corner. It is shown moved
+// and shrunk to fit inside the layout when the layout is smaller (the stored value is kept), and
+// at least FLOATING_MIN_WIDTH by FLOATING_MIN_HEIGHT.
+export interface FloatingRect extends Size {
+	x: number;
+	y: number;
+}
+
+// A tab group floating above the docked layout, inside its box: moved by its tab bar, resized by
+// its edges, and docked back by dragging its tabs (or with the keyboard).
+export interface FloatingGroupConfig extends TabGroupConfig {
+	rect: FloatingRect;
+}
+
 export interface LayoutConfig {
 	root?: NodeConfig;
+	// Tab groups floating above the docked layout, from the bottom one to the top one.
+	floating?: FloatingGroupConfig[];
 	// When set, this view fills the entire layout container, hiding everything else.
 	maximizedView?: Id;
 	// Views rendered in detached browser windows. HorizonLayout opens/closes
@@ -66,11 +88,21 @@ export interface KeyboardControl<T> {
 	action: (data: T, event: KeyboardEvent) => void;
 }
 
-// Controls passed to HorizonLayout. Both arrays are optional; omit either
+// What a floating group's keyboard controls act on: the group, and the size of the layout it
+// floats in (zero until the layout is measured), to keep it inside.
+export interface FloatingControlData {
+	config: FloatingGroupConfig;
+	bounds: Size;
+}
+
+// Controls passed to HorizonLayout. Every array is optional; omit one
 // to keep the built-in defaults for that category.
 export interface KeyboardControls {
 	splitControls?: KeyboardControl<{ config: SplitConfig; index: number }>[];
+	// Run on a focused tab list, docked or floating.
 	tabGroupControls?: KeyboardControl<TabGroupConfig>[];
+	// Run on a focused floating group's frame (not on its tab list or its content).
+	floatingControls?: KeyboardControl<FloatingControlData>[];
 }
 
 // The text HorizonLayout writes itself. Its translations prop takes any of these keys, each one
@@ -80,6 +112,9 @@ export interface LayoutTranslations {
 	// Accessible name of the handle between two panes of a split, given the 1-based number of
 	// the pane before the handle (for example "Resize pane 1").
 	resizePane: (pane: number) => string;
+	// Accessible name of a floating group's frame, given the title of its active tab (for example
+	// "Docs, floating panel").
+	floatingPanel: (title: string) => string;
 }
 
 // Used internally as an entry in nodeParentMap

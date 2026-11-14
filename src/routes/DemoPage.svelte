@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	export type PageKind = 'intro' | 'usage' | 'files' | 'config' | 'blank';
+	export type PageKind = 'intro' | 'usage' | 'files' | 'config' | 'floating' | 'blank';
 </script>
 
 <script lang="ts">
@@ -27,6 +27,13 @@
 		{ name: 'routes/', depth: 1 },
 		{ name: 'package.json', depth: 0 }
 	];
+
+	const floatingUsage = `import { findTabGroup, floatView } from 'horizon-layout';
+
+// Bring the docs to the front if they are open, float them otherwise.
+const group = findTabGroup(config, 'docs');
+if (group) group.activeTabIndex = group.tabs.indexOf('docs');
+else floatView(config, 'docs', { x: 80, y: 60, width: 420, height: 520 });`;
 
 	const usage = `<script lang="ts">
   import { HorizonLayout } from 'horizon-layout';
@@ -75,6 +82,18 @@
 				<li style:padding-left="{file.depth * 1.25}ch">{file.name}</li>
 			{/each}
 		</ul>
+	{:else if kind === 'floating'}
+		<p>This panel floats over the layout, and is saved with it in <code>config.floating</code>.</p>
+		<ul>
+			<li>Drag its tab bar to move it, and an edge or a corner to resize it.</li>
+			<li>Drag its tab onto a pane to dock it back, like any tab.</li>
+			<li>Float any tab with the button next to its title.</li>
+			<li>
+				With the keyboard: focus the panel's frame (Tab), then the arrow keys move it and Alt +
+				arrows resize it. In its tab bar, Ctrl + arrows and Alt + arrows dock its tab.
+			</li>
+		</ul>
+		<pre><code>{floatingUsage}</code></pre>
 	{:else if kind === 'config'}
 		<p>The <code>config</code> bound to the layout, updated as you change it.</p>
 		<pre><code>{JSON.stringify(config(), null, 2)}</code></pre>

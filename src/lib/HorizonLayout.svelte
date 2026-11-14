@@ -1,7 +1,10 @@
 <script lang="ts">
-	import { mount, onMount, unmount, untrack, type Snippet } from 'svelte';
+	import { mount, onMount, tick, unmount, untrack, type Snippet } from 'svelte';
 	import type {
+		FloatingControlData,
+		FloatingGroupConfig,
 		Id,
+		KeyboardControl,
 		KeyboardControls,
 		LayoutConfig,
 		LayoutTranslations,
@@ -9,8 +12,10 @@
 		ParentEntry,
 		SplitConfig,
 		TabGroupConfig,
+		Modifier,
 		View
 	} from './types.ts';
+	import HorizonFloatingGroup from './FloatingGroup.svelte';
 	import HorizonLayoutNode from './LayoutNode.svelte';
 	import HorizonPopoutContent from './PopoutContent.svelte';
 	import { SvelteMap } from 'svelte/reactivity';
@@ -26,6 +31,7 @@
 	import { dropTargetType, roundSplitPoint } from './internal-utils.ts';
 	import type { DropTarget } from './internal-types.ts';
 	import { reconcileConfig } from './reconcile.ts';
+	import { moveFloatingGroup, resizeFloatingGroup } from './floating.ts';
 	import { englishTranslations } from './translations.ts';
 
 	interface Popout {
@@ -91,7 +97,7 @@
 		/** Hide the tab bar entirely (useful when every group has exactly one tab). */
 		hideTabBar?: boolean;
 		/**
-		 * Keyboard shortcuts for splits and tab groups. Each category given replaces its built-in
+		 * Keyboard shortcuts for splits, tab groups and floating groups. Each category given replaces its built-in
 		 * controls; a category left out keeps them.
 		 */
 		keyboardControls?: KeyboardControls;
@@ -118,8 +124,30 @@
 
 	// Key by key, so a key passed as undefined falls back too.
 	let fullTranslations: LayoutTranslations = $derived({
-		resizePane: translations.resizePane ?? englishTranslations.resizePane
+		resizePane: translations.resizePane ?? englishTranslations.resizePane,
+		floatingPanel: translations.floatingPanel ?? englishTranslations.floatingPanel
 	});
+
+	const FLOATING_STEP = 10;
+	const FLOATING_BIG_STEP = 50;
+
+	// One control per arrow key with `modifier`, calling `act` with the step along that arrow.
+	function arrowControls(
+		modifier: Modifier | undefined,
+		step: number,
+		act: (data: FloatingControlData, dx: number, dy: number) => void
+	): KeyboardControl<FloatingControlData>[] {
+		const arrows: [string, number, number][] = [
+			['ArrowLeft', -step, 0],
+			['ArrowRight', step, 0],
+			['ArrowUp', 0, -step],
+			['ArrowDown', 0, step]
+		];
+		return arrows.map(([key, dx, dy]) => ({
+			shortcuts: [{ modifier, key }],
+			action: (data) => act(data, dx, dy)
+		}));
+	}
 
 	// The built-in keyboard controls, used for each category `keyboardControls` leaves out.
 	const defaultKeyboardControls: Required<KeyboardControls> = {
@@ -294,13 +322,39 @@
 				shortcuts: [{ modifier: 'alt', key: 'ArrowUp' }],
 				action: (tg) => splitTabGroup(tg, 'up')
 			}
+		],
+		floatingControls: [
+			// Escape blurs the floating group's frame.
+			{
+				shortcuts: [{ key: 'Escape' }],
+				action: (_, event) => (event.currentTarget as HTMLElement).blur()
+			},
+			// Arrow keys move the group by 10 px, 50 px with Shift.
+			...arrowControls(undefined, FLOATING_STEP, (data, dx, dy) =>
+				moveFloatingGroup(data.config, dx, dy, data.bounds)
+			),
+			...arrowControls('shift', FLOATING_BIG_STEP, (data, dx, dy) =>
+				moveFloatingGroup(data.config, dx, dy, data.bounds)
+			),
+			// Alt + Arrow resizes it (right and down grow it), by 50 px with Shift too.
+			...arrowControls('alt', FLOATING_STEP, (data, dx, dy) =>
+				resizeFloatingGroup(data.config, dx, dy, data.bounds)
+			),
+			...arrowControls('alt+shift', FLOATING_BIG_STEP, (data, dx, dy) =>
+				resizeFloatingGroup(data.config, dx, dy, data.bounds)
+			)
 		]
 	};
 
 	let controls: Required<KeyboardControls> = $derived({
 		splitControls: keyboardControls.splitControls ?? defaultKeyboardControls.splitControls,
-		tabGroupControls: keyboardControls.tabGroupControls ?? defaultKeyboardControls.tabGroupControls
+		tabGroupControls: keyboardControls.tabGroupControls ?? defaultKeyboardControls.tabGroupControls,
+		floatingControls: keyboardControls.floatingControls ?? defaultKeyboardControls.floatingControls
 	});
+
+	// The size of the layout's box, which floating groups are kept inside; zero until measured.
+	let layoutWidth = $state(0);
+	let layoutHeight = $state(0);
 
 	// The layout operates on a validated internal copy so that invalid external
 	// configs are caught at the boundary without corrupting the running state.
@@ -348,7 +402,7 @@
 			internalConfig = null;
 			return;
 		}
-		// Applied in place, so the panels whose place is unchanged stay mounted.
+		// Applied in place, so the panels still in the same split stay mounted.
 		untrack(() => {
 			if (internalConfig) reconcileConfig(internalConfig, external);
 			else internalConfig = cloneConfig(external);
@@ -414,35 +468,79 @@
 		tabGroup.activeTabIndex = targetIndex;
 	}
 
-	function firstTabGroup(node: NodeConfig = internalConfig!.root!): TabGroupConfig {
-		if (nodeConfigType(node) === 'tabGroup') return node as TabGroupConfig;
+	function isFloating(tabGroup: TabGroupConfig): tabGroup is FloatingGroupConfig {
+		return internalConfig?.floating?.includes(tabGroup as FloatingGroupConfig) ?? false;
+	}
+
+	// The first and the last tab group of the docked layout, or undefined when nothing is docked.
+	function firstTabGroup(node = internalConfig?.root): TabGroupConfig | undefined {
+		if (!node || nodeConfigType(node) === 'tabGroup') return node as TabGroupConfig | undefined;
 		return firstTabGroup((node as SplitConfig).views[0]!);
 	}
 
-	function lastTabGroup(node: NodeConfig = internalConfig!.root!): TabGroupConfig {
-		if (nodeConfigType(node) === 'tabGroup') return node as TabGroupConfig;
+	function lastTabGroup(node = internalConfig?.root): TabGroupConfig | undefined {
+		if (!node || nodeConfigType(node) === 'tabGroup') return node as TabGroupConfig | undefined;
 		const vs = (node as SplitConfig).views;
 		return lastTabGroup(vs[vs.length - 1]!);
 	}
 
-	function moveActiveTabToTabGroup(source: TabGroupConfig, destination: TabGroupConfig) {
+	// The tab group on the `direction` side of `node`, for docking a floating tab at that side.
+	function outerEdgeTabGroup(node: NodeConfig, direction: Direction): TabGroupConfig {
+		if (nodeConfigType(node) === 'tabGroup') return node as TabGroupConfig;
+		const split = node as SplitConfig;
+		const takesLast = split.direction === axisOf(direction) && !isLeftOrUp(direction);
+		return outerEdgeTabGroup(split.views[takesLast ? split.views.length - 1 : 0]!, direction);
+	}
+
+	function axisOf(direction: Direction): SplitConfig['direction'] {
+		return direction === 'left' || direction === 'right' ? 'horizontal' : 'vertical';
+	}
+
+	function isLeftOrUp(direction: Direction): boolean {
+		return direction === 'left' || direction === 'up';
+	}
+
+	// Takes the active tab out of `source`, removing the group if that leaves it empty.
+	function takeActiveTab(source: TabGroupConfig): Id {
+		const tab = source.tabs[source.activeTabIndex]!;
+		source.tabs.splice(source.activeTabIndex, 1);
+		source.activeTabIndex = Math.max(Math.min(source.activeTabIndex, source.tabs.length - 1), 0);
+		simplifyTabGroup(source, nodeParentMap, internalConfig!);
+		return tab;
+	}
+
+	// Moves the active tab of `source` to the end of `destination`, or makes it the whole docked
+	// layout when `destination` is undefined (nothing is docked); focus follows the tab.
+	function moveActiveTabToTabGroup(
+		source: TabGroupConfig,
+		destination: TabGroupConfig | undefined
+	) {
 		if (source === destination) return;
 
-		const sourceTab = source.tabs[source.activeTabIndex]!;
+		const sourceTab = takeActiveTab(source);
 
-		source.tabs.splice(source.activeTabIndex, 1);
-		source.activeTabIndex = Math.min(source.activeTabIndex, source.tabs.length - 1);
-		simplifyTabGroup(source, nodeParentMap, internalConfig!);
-
-		destination.activeTabIndex = destination.tabs.length;
-		destination.tabs.push(sourceTab);
+		if (destination) {
+			destination.activeTabIndex = destination.tabs.length;
+			destination.tabs.push(sourceTab);
+			focusTabGroup(destination);
+		} else {
+			internalConfig!.root = { tabs: [sourceTab], activeTabIndex: 0 };
+			focusTabGroup(internalConfig!.root);
+		}
 	}
 
 	// Walk up the tree to find the nearest split on the target axis, then pick
-	// the adjacent pane in the requested direction.
+	// the adjacent pane in the requested direction. A floating group's tab goes
+	// to the docked group on that side of the layout.
 	function moveActiveTabToClosestTabGroup(tabGroup: TabGroupConfig, direction: Direction) {
-		const directionAxis = direction === 'left' || direction === 'right' ? 'horizontal' : 'vertical';
-		const isDirectionLeftOrUp = direction === 'left' || direction === 'up';
+		if (isFloating(tabGroup)) {
+			const root = internalConfig!.root;
+			moveActiveTabToTabGroup(tabGroup, root && outerEdgeTabGroup(root, direction));
+			return;
+		}
+
+		const directionAxis = axisOf(direction);
+		const isDirectionLeftOrUp = isLeftOrUp(direction);
 
 		const edgeTabGroup = (root: NodeConfig): TabGroupConfig => {
 			if (nodeConfigType(root) === 'tabGroup') return root as TabGroupConfig;
@@ -479,6 +577,12 @@
 		);
 	}
 
+	// How many tab groups deep the docked layout is at its deepest (a lone tab group is 1).
+	function treeDepth(node: NodeConfig): number {
+		if (nodeConfigType(node) === 'tabGroup') return 1;
+		return 1 + Math.max(...(node as SplitConfig).views.map(treeDepth));
+	}
+
 	function canSplitTabGroup(tabGroup: TabGroupConfig, splitDirection: SplitConfig['direction']) {
 		const parent = nodeParentMap.get(tabGroup);
 		if (parent?.parent.direction === splitDirection) {
@@ -499,24 +603,32 @@
 		return getNodeDepth(tabGroup) + 1 <= maxDepth;
 	}
 
+	// A floating group takes tabs into its tab bar only: it holds no splits.
 	function canDrop(tabGroup: TabGroupConfig, target: DropTarget) {
 		if (dropTargetType(target) === 'tab') return true;
+		if (isFloating(tabGroup)) return false;
 		return canSplitTabGroup(
 			tabGroup,
 			target.side === 'left' || target.side === 'right' ? 'horizontal' : 'vertical'
 		);
 	}
 
+	// Splits the active tab out into a new pane on the `direction` side of its group; a floating
+	// group's tab is docked as a new pane on that side of the whole layout instead. Focus follows
+	// the tab.
 	function splitTabGroup(tabGroup: TabGroupConfig, direction: Direction) {
+		if (isFloating(tabGroup)) {
+			dockAtEdge(tabGroup, direction);
+			return;
+		}
 		if (tabGroup.tabs.length === 1) return;
 
 		const tabToSplitOut = tabGroup.tabs[tabGroup.activeTabIndex]!;
 		const oldActiveTabIndex = tabGroup.activeTabIndex;
-		const splitDirection =
-			direction === 'left' || direction === 'right' ? 'horizontal' : 'vertical';
+		const splitDirection = axisOf(direction);
 		const newTabGroup: TabGroupConfig = { tabs: [tabToSplitOut], activeTabIndex: 0 };
 		const parent = nodeParentMap.get(tabGroup);
-		const isCurrentTabFirst = direction === 'left' || direction === 'up';
+		const isCurrentTabFirst = isLeftOrUp(direction);
 		const createsNestedSplit = !parent || parent.parent.direction !== splitDirection;
 
 		if (!canSplitTabGroup(tabGroup, splitDirection)) return;
@@ -536,8 +648,12 @@
 			const tabgroupParent = nodeParentMap.get(tabGroup);
 			if (tabgroupParent) {
 				tabgroupParent.parent.views[tabgroupParent.index] = split;
+				const inserted = tabgroupParent.parent.views[tabgroupParent.index] as SplitConfig;
+				focusTabGroup(inserted.views[isCurrentTabFirst ? 0 : 1] as TabGroupConfig);
 			} else {
 				internalConfig!.root = split;
+				const inserted = internalConfig!.root as SplitConfig;
+				focusTabGroup(inserted.views[isCurrentTabFirst ? 0 : 1] as TabGroupConfig);
 			}
 		} else {
 			// Insert into the existing split rather than creating a new nested one
@@ -545,7 +661,84 @@
 			parent.parent.views.splice(insertIndex, 0, newTabGroup);
 			// Split the target pane in half
 			parent.parent.splitPoints.splice(parent.index, 0, paneMidpoint(parent));
+			focusTabGroup(parent.parent.views[insertIndex] as TabGroupConfig);
 		}
+	}
+
+	// Docks the active tab of a floating group as a new pane on the `direction` side of the docked
+	// layout: into the root split when it runs along that axis (halving its edge pane), otherwise
+	// around the whole layout. Does nothing when the minimum sizes or maxDepth leave no room.
+	function dockAtEdge(source: FloatingGroupConfig, direction: Direction) {
+		const config = internalConfig!;
+		const root = config.root;
+		const splitDirection = axisOf(direction);
+		const isFirst = isLeftOrUp(direction);
+
+		if (!root) {
+			moveActiveTabToTabGroup(source, undefined);
+			return;
+		}
+
+		if (nodeConfigType(root) === 'split' && (root as SplitConfig).direction === splitDirection) {
+			const split = root as SplitConfig;
+			const edge = { parent: split, index: isFirst ? 0 : split.views.length - 1 };
+			const share = (split.splitPoints[edge.index] ?? 1) - (split.splitPoints[edge.index - 1] ?? 0);
+			const minRatio = splitDirection === 'horizontal' ? minWidthRatio : minHeightRatio;
+			if (share / 2 < minRatio) return;
+			const midpoint = paneMidpoint(edge);
+			const group: TabGroupConfig = { tabs: [takeActiveTab(source)], activeTabIndex: 0 };
+			const insertIndex = isFirst ? 0 : split.views.length;
+			split.views.splice(insertIndex, 0, group);
+			split.splitPoints.splice(edge.index, 0, midpoint);
+			focusTabGroup(split.views[insertIndex] as TabGroupConfig);
+			return;
+		}
+
+		if (treeDepth(root) + 1 > maxDepth) return;
+		const group: TabGroupConfig = { tabs: [takeActiveTab(source)], activeTabIndex: 0 };
+		config.root = {
+			direction: splitDirection,
+			views: isFirst ? [group, root] : [root, group],
+			splitPoints: [0.5]
+		};
+		focusTabGroup((config.root as SplitConfig).views[isFirst ? 0 : 1] as TabGroupConfig);
+	}
+
+	// The tab list element of every rendered tab group, to move focus to a group.
+	const tabLists = new Map<TabGroupConfig, HTMLElement>();
+
+	function registerTabList(config: TabGroupConfig, element: HTMLElement) {
+		tabLists.set(config, element);
+		return () => {
+			if (tabLists.get(config) === element) tabLists.delete(config);
+		};
+	}
+
+	// Focuses the tab list of `group` once the change that put a tab there is rendered.
+	function focusTabGroup(group: TabGroupConfig) {
+		void tick().then(() => tabLists.get(group)?.focus());
+	}
+
+	// Floating groups are rendered in the order they first appeared, and stacked by their place in
+	// `floating`: raising one changes z-indexes only, and never moves an element, which would
+	// reload an iframe inside it and drop the focus in it.
+	const floatingFirstSeen = new WeakMap<FloatingGroupConfig, number>();
+	let floatingSeenCount = 0;
+	let floatingRenderOrder = $derived.by(() => {
+		const floating = internalConfig?.floating ?? [];
+		for (const group of floating) {
+			if (!floatingFirstSeen.has(group)) floatingFirstSeen.set(group, floatingSeenCount++);
+		}
+		return [...floating].sort((a, b) => floatingFirstSeen.get(a)! - floatingFirstSeen.get(b)!);
+	});
+
+	// Puts a floating group on top of the others.
+	function raiseFloatingGroup(group: FloatingGroupConfig) {
+		const floating = internalConfig?.floating;
+		const index = floating?.indexOf(group) ?? -1;
+		if (!floating || index === -1 || index === floating.length - 1) return;
+		floating.splice(index, 1);
+		floating.push(group);
 	}
 
 	function onHoverEnter(tabGroup: TabGroupConfig, target: DropTarget) {
@@ -718,7 +911,7 @@
 			onPopoutBlocked(id);
 		} else {
 			if (internalConfig.root) {
-				const target = lastTabGroup();
+				const target = lastTabGroup()!;
 				target.tabs.push(id);
 				target.activeTabIndex = target.tabs.length - 1;
 			} else {
@@ -797,38 +990,80 @@
 	}
 </script>
 
-<div class={baseClass}>
+<div
+	class={baseClass}
+	style:position="relative"
+	bind:clientWidth={layoutWidth}
+	bind:clientHeight={layoutHeight}
+>
 	{#if internalConfig}
 		{#if internalConfig.maximizedView}
 			{@const view = views.get(internalConfig.maximizedView)}
 			<div class="{baseClass}__content {baseClass}__content--maximized" aria-label={view?.title}>
 				{@render view?.snippet()}
 			</div>
-		{:else if internalConfig.root}
-			<div class="{baseClass}__content">
-				<HorizonLayoutNode
-					bind:config={internalConfig.root}
-					{views}
-					translations={fullTranslations}
-					{tabgroupControls}
-					{disableResizeSplits}
-					{disableDragAndDrop}
-					isDragging={dragData !== null}
-					{onStartTabDrag}
-					{onHoverEnter}
-					{onHoverExit}
-					{canDrop}
-					remainingDepth={maxDepth}
-					{showSplitRatio}
-					{minWidthRatio}
-					{minHeightRatio}
-					{hideTabBar}
-					keyboardControls={controls}
-					{formatRatio}
-					{formatRatioForAria}
-					{baseClass}
-				></HorizonLayoutNode>
-			</div>
+		{:else}
+			{#if internalConfig.root}
+				<!-- Its own stacking context, so the z-indexes inside it (tab bars, split handles,
+				drop zones) stay under the floating groups, drawn after it. -->
+				<div class="{baseClass}__content" style="isolation: isolate;">
+					<HorizonLayoutNode
+						bind:config={internalConfig.root}
+						{views}
+						translations={fullTranslations}
+						{tabgroupControls}
+						{disableResizeSplits}
+						{disableDragAndDrop}
+						isDragging={dragData !== null}
+						{onStartTabDrag}
+						{onHoverEnter}
+						{onHoverExit}
+						{canDrop}
+						remainingDepth={maxDepth}
+						{showSplitRatio}
+						{minWidthRatio}
+						{minHeightRatio}
+						{hideTabBar}
+						keyboardControls={controls}
+						{formatRatio}
+						{formatRatioForAria}
+						{baseClass}
+						{registerTabList}
+					></HorizonLayoutNode>
+				</div>
+			{/if}
+			{#if internalConfig.floating}
+				{@const floating = internalConfig.floating}
+				<div
+					class="{baseClass}__floating"
+					style="position: absolute; inset: 0; pointer-events: none; isolation: isolate;"
+				>
+					{#each floatingRenderOrder as group (group)}
+						{@const index = floating.indexOf(group)}
+						<HorizonFloatingGroup
+							bind:config={floating[index]!}
+							bounds={{ width: layoutWidth, height: layoutHeight }}
+							zIndex={index + 1}
+							topZIndex={floating.length + 1}
+							{views}
+							translations={fullTranslations}
+							{tabgroupControls}
+							{disableDragAndDrop}
+							isDragging={dragData !== null}
+							{onStartTabDrag}
+							{onHoverEnter}
+							{onHoverExit}
+							{canDrop}
+							remainingDepth={maxDepth}
+							tabGroupControls={controls.tabGroupControls}
+							floatingControls={controls.floatingControls}
+							{baseClass}
+							{registerTabList}
+							onRaise={raiseFloatingGroup}
+						/>
+					{/each}
+				</div>
+			{/if}
 		{/if}
 	{/if}
 </div>

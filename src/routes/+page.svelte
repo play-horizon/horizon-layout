@@ -1,6 +1,7 @@
 <script lang="ts">
 	import HorizonLayout from '#lib/HorizonLayout.svelte';
 	import type {
+		FloatingRect,
 		Id,
 		KeyboardControl,
 		KeyboardControls,
@@ -19,8 +20,11 @@
 	import {
 		buildNodeParentMap,
 		cloneConfig,
+		findTabGroup,
+		floatView,
 		nodeConfigType,
 		parseLayoutConfig,
+		removeView,
 		simplifyTabGroup
 	} from '#lib/utils.js';
 	import { themes, themeClassMap } from './themes.js';
@@ -35,7 +39,15 @@
 	// ------------------------------------------------------------------ pages
 
 	type PageKind = DemoPageKind | 'nested';
-	const pageKinds: PageKind[] = ['intro', 'usage', 'files', 'config', 'blank', 'nested'];
+	const pageKinds: PageKind[] = [
+		'intro',
+		'usage',
+		'files',
+		'config',
+		'floating',
+		'blank',
+		'nested'
+	];
 
 	interface DemoPageDef {
 		id: Id;
@@ -50,6 +62,7 @@
 			{ id: 'usage', title: 'Usage', kind: 'usage' },
 			{ id: 'files', title: 'Files', kind: 'files' },
 			{ id: 'config', title: 'Config', kind: 'config' },
+			{ id: 'floating', title: 'Floating panel', kind: 'floating' },
 			{ id: 'nested', title: 'Nested layout', kind: 'nested', persistent: true }
 		];
 	}
@@ -76,7 +89,14 @@
 					{ tabs: ['nested'], activeTabIndex: 0 }
 				],
 				splitPoints: [0.3, 0.55]
-			}
+			},
+			floating: [
+				{
+					tabs: ['floating'],
+					activeTabIndex: 0,
+					rect: { x: 320, y: 140, width: 380, height: 260 }
+				}
+			]
 		};
 	}
 
@@ -129,7 +149,7 @@
 			map.set(page.id, {
 				title: page.title,
 				snippet: pageSnippet(page),
-				tabControls: [popoutButton, closeButton]
+				tabControls: [floatButton, popoutButton, closeButton]
 			});
 		}
 		return map;
@@ -160,34 +180,14 @@
 	function removePage(id: Id) {
 		const def = pages.find((p) => p.id === id);
 		if (!def || def.persistent) return;
-
-		if (config.root) {
-			const map = buildNodeParentMap(config.root);
-			const find = (node: NodeConfig): TabGroupConfig | null => {
-				if (nodeConfigType(node) === 'tabGroup') {
-					return (node as TabGroupConfig).tabs.includes(id) ? (node as TabGroupConfig) : null;
-				}
-				for (const view of (node as SplitConfig).views) {
-					const found = find(view);
-					if (found) return found;
-				}
-				return null;
-			};
-			const group = find(config.root);
-			if (group) {
-				const index = group.tabs.indexOf(id);
-				group.tabs.splice(index, 1);
-				group.activeTabIndex = Math.min(group.activeTabIndex, group.tabs.length - 1);
-				simplifyTabGroup(group, map, config);
-			}
-		}
-
-		if (config.maximizedView === id) config.maximizedView = undefined;
-		if (config.popouts?.includes(id)) {
-			const remaining = config.popouts.filter((p) => p !== id);
-			config.popouts = remaining.length ? remaining : undefined;
-		}
+		removeView(config, id);
 		pages = pages.filter((p) => p.id !== id);
+	}
+
+	// Floats a view in front of the others, each new one a little lower and to the right.
+	function float(viewId: Id) {
+		const offset = 24 * (config.floating?.length ?? 0);
+		floatView(config, viewId, { x: 80 + offset, y: 60 + offset, width: 380, height: 260 });
 	}
 
 	function resetLayout() {
@@ -199,11 +199,22 @@
 
 	// ----------------------------------------------------------------- popout
 
-	let popoutsOriginalPositions: { viewId: Id; position: number[] }[] = [];
+	// Where each popped-out view came from: its path in the docked tree, or its floating rect.
+	let popoutsOriginalPositions: { viewId: Id; position: number[]; rect?: FloatingRect }[] = [];
 
 	function popout(viewId: Id) {
-		if (!config.root || config.popouts?.includes(viewId)) return;
+		if (config.popouts?.includes(viewId)) return;
 		popoutsOriginalPositions = popoutsOriginalPositions.filter((p) => p.viewId !== viewId);
+
+		const floatingGroup = config.floating?.find((group) => group.tabs.includes(viewId));
+		if (floatingGroup) {
+			const rect = { ...floatingGroup.rect };
+			removeView(config, viewId);
+			config.popouts = [...(config.popouts ?? []), viewId];
+			popoutsOriginalPositions.push({ viewId, position: [], rect });
+			return;
+		}
+		if (!config.root) return;
 
 		const configCopy = cloneConfig(config);
 		const position: number[] = [];
@@ -244,6 +255,12 @@
 	}
 
 	function onPopoutClose(viewId: Id) {
+		const original = popoutsOriginalPositions.findLast((p) => p.viewId === viewId);
+		if (original?.rect) {
+			popoutsOriginalPositions = popoutsOriginalPositions.filter((p) => p !== original);
+			floatView(config, viewId, original.rect);
+			return;
+		}
 		if (!config.popouts?.includes(viewId)) return;
 		const position = popoutsOriginalPositions.reduceRight<number[]>(
 			(acc, p, i, arr) => (p.viewId === viewId ? (arr.splice(i, 1), p.position) : acc),
@@ -330,22 +347,47 @@
 		tg.activeTabIndex = target;
 	}
 
-	// Actions that need the full tree: locate the matching external tab group via
-	// the active view id (view ids are unique across the layout).
+	// Actions that need the full tree: locate the matching external tab group, docked or
+	// floating, via the active view id (view ids are unique across the layout).
 	function findExternalTabGroup(tg: TabGroupConfig): TabGroupConfig | null {
 		const activeId = tg.tabs[tg.activeTabIndex];
-		if (!activeId || !config.root) return null;
-		const walk = (node: NodeConfig): TabGroupConfig | null => {
-			if (nodeConfigType(node) === 'tabGroup') {
-				return (node as TabGroupConfig).tabs.includes(activeId) ? (node as TabGroupConfig) : null;
-			}
-			for (const view of (node as SplitConfig).views) {
-				const found = walk(view);
-				if (found) return found;
-			}
-			return null;
-		};
-		return walk(config.root);
+		return (activeId && findTabGroup(config, activeId)) || null;
+	}
+
+	function isFloatingGroup(group: TabGroupConfig): boolean {
+		return config.floating?.some((floating) => floating === group) ?? false;
+	}
+
+	// Docks the active tab of a floating group: into the last or first docked group, or (`split`)
+	// as a new pane around the whole docked layout. The library's own controls also respect
+	// the minimum sizes and maxDepth; this demo keeps it short.
+	function demoDock(
+		group: TabGroupConfig,
+		direction: 'left' | 'right' | 'up' | 'down',
+		split: boolean
+	) {
+		const id = group.tabs[group.activeTabIndex]!;
+		const isFirst = direction === 'left' || direction === 'up';
+		removeView(config, id);
+		const pane: TabGroupConfig = { tabs: [id], activeTabIndex: 0 };
+		if (!config.root) {
+			config.root = pane;
+		} else if (split) {
+			config.root = {
+				direction: direction === 'left' || direction === 'right' ? 'horizontal' : 'vertical',
+				views: isFirst ? [pane, config.root] : [config.root, pane],
+				splitPoints: [0.5]
+			};
+		} else {
+			const target = isFirst ? firstTabGroupOf(config.root) : lastTabGroup(config.root);
+			target.tabs.push(id);
+			target.activeTabIndex = target.tabs.length - 1;
+		}
+	}
+
+	function firstTabGroupOf(node: NodeConfig): TabGroupConfig {
+		if (nodeConfigType(node) === 'tabGroup') return node as TabGroupConfig;
+		return firstTabGroupOf((node as SplitConfig).views[0]!);
 	}
 
 	function paneMidpoint(entry: { parent: SplitConfig; index: number }): number {
@@ -378,6 +420,10 @@
 
 	function demoSplit(tg: TabGroupConfig, direction: 'left' | 'right' | 'up' | 'down') {
 		const group = findExternalTabGroup(tg);
+		if (group && isFloatingGroup(group)) {
+			demoDock(group, direction, true);
+			return;
+		}
 		if (!group || group.tabs.length < 2 || !config.root) return;
 		const splitDirection =
 			direction === 'left' || direction === 'right' ? 'horizontal' : 'vertical';
@@ -409,6 +455,10 @@
 
 	function demoMoveTabToClosest(tg: TabGroupConfig, direction: 'left' | 'right' | 'up' | 'down') {
 		const source = findExternalTabGroup(tg);
+		if (source && isFloatingGroup(source)) {
+			demoDock(source, direction, false);
+			return;
+		}
 		if (!source || !config.root) return;
 		const map = buildNodeParentMap(config.root);
 		const axis = direction === 'left' || direction === 'right' ? 'horizontal' : 'vertical';
@@ -525,7 +575,16 @@
 		return { splitControls: splits, tabGroupControls: tabGroup };
 	}
 
-	let keyboardControls = $derived(buildControls(kbBindings));
+	// The library's built-in controls until a binding is changed; this demo's own after that.
+	let keyboardControls = $derived(
+		(Object.keys(defaultBindings) as ActionId[]).every(
+			(action) =>
+				kbBindings[action].key === defaultBindings[action].key &&
+				kbBindings[action].modifier === defaultBindings[action].modifier
+		)
+			? {}
+			: buildControls(kbBindings)
+	);
 
 	// ------------------------------------------------------------ persistence
 
@@ -662,6 +721,16 @@
 		}
 	}}
 />
+
+{#snippet floatButton(viewId: Id)}
+	{#if !config.floating?.some((group) => group.tabs.length === 1 && group.tabs[0] === viewId)}
+		<button class="ctl" onclick={() => float(viewId)} title="Float" aria-label="Float">
+			<svg viewBox="0 0 16 16" aria-hidden="true">
+				<path d="M2.5 4.5h7v7h-7zM6.5 2.5h7v7" />
+			</svg>
+		</button>
+	{/if}
+{/snippet}
 
 {#snippet popoutButton(viewId: Id)}
 	<button class="ctl" onclick={() => popout(viewId)} title="Pop out" aria-label="Pop out">

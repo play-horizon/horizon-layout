@@ -12,5 +12,6 @@ import type { LayoutTranslations } from './types.ts';
  * englishTranslations.resizePane(1); // "Resize pane 1"
  */
 export const englishTranslations: LayoutTranslations = {
-	resizePane: (pane) => `Resize pane ${pane}`
+	resizePane: (pane) => `Resize pane ${pane}`,
+	floatingPanel: (title) => `${title}, floating panel`
 };

@@ -1,16 +1,25 @@
+/**
+ * Unit tests of the public config helpers: validating, parsing, cloning and comparing layout
+ * configs, simplifying the tree, and finding, removing and floating views.
+ * @module
+ */
 import { describe, expect, it } from 'vitest';
-import type { LayoutConfig, SplitConfig, TabGroupConfig } from './types.ts';
+import type { FloatingGroupConfig, LayoutConfig, SplitConfig, TabGroupConfig } from './types.ts';
 import {
 	areConfigsEquivalent,
 	buildNodeParentMap,
 	cloneConfig,
+	findTabGroup,
+	floatView,
 	nodeConfigType,
 	parseLayoutConfig,
+	removeView,
 	simplifyTabGroup,
 	validateConfig
 } from './utils.ts';
 
 const views = new Map(['a', 'b', 'c', 'd'].map((id) => [id, {}]));
+const rect = { x: 10, y: 20, width: 300, height: 200 };
 
 function threePaneConfig(): LayoutConfig {
 	return {
@@ -163,8 +172,20 @@ describe('validateConfig', () => {
 	});
 
 	it('accepts known maximizedView and popout ids', () => {
-		const config: LayoutConfig = { ...threePaneConfig(), maximizedView: 'a', popouts: ['b', 'c'] };
-		expect(() => validateConfig(config, views)).not.toThrow();
+		const more = new Map([...views, ['e', {}], ['f', {}]]);
+		const config: LayoutConfig = { ...threePaneConfig(), maximizedView: 'a', popouts: ['e', 'f'] };
+		expect(() => validateConfig(config, more)).not.toThrow();
+	});
+
+	it('rejects a view shown in two places', () => {
+		expect(() => validateConfig({ ...threePaneConfig(), popouts: ['b'] }, views)).toThrow(
+			'duplicate tab id "b"'
+		);
+		expect(() => validateConfig({ popouts: ['a', 'a'] }, views)).toThrow('duplicate popout id "a"');
+		const floating = { tabs: ['a'], activeTabIndex: 0, rect } as FloatingGroupConfig;
+		expect(() => validateConfig({ ...threePaneConfig(), floating: [floating] }, views)).toThrow(
+			'duplicate tab id "a"'
+		);
 	});
 
 	it('rejects unknown maximizedView and popout ids', () => {
@@ -175,13 +196,37 @@ describe('validateConfig', () => {
 	});
 
 	it('accepts ids whose view value is falsy', () => {
-		const falsyViews = new Map([['a', 0]]);
+		const falsyViews = new Map([
+			['a', 0],
+			['b', null]
+		]);
 		const config: LayoutConfig = {
 			root: { tabs: ['a'], activeTabIndex: 0 },
 			maximizedView: 'a',
-			popouts: ['a']
+			popouts: ['b']
 		};
 		expect(() => validateConfig(config, falsyViews)).not.toThrow();
+	});
+});
+
+describe('validateConfig with floating groups', () => {
+	it('accepts floating groups next to the docked layout', () => {
+		const floating: FloatingGroupConfig[] = [{ tabs: ['e'], activeTabIndex: 0, rect }];
+		const more = new Map([...views, ['e', {}]]);
+		expect(() => validateConfig({ ...threePaneConfig(), floating }, more)).not.toThrow();
+		expect(() => validateConfig({ floating }, more)).not.toThrow();
+	});
+
+	it('rejects a floating group with a bad tab list or rect', () => {
+		const bad = (group: object) => () =>
+			validateConfig({ floating: [group as FloatingGroupConfig] }, views);
+		expect(bad({ tabs: ['a'], activeTabIndex: 1, rect })).toThrow('activeTabIndex out of range');
+		expect(bad({ tabs: ['x'], activeTabIndex: 0, rect })).toThrow('unknown tab id "x"');
+		for (const broken of [{ width: 0 }, { height: -1 }, { x: Number.NaN }, { y: Infinity }]) {
+			expect(bad({ tabs: ['a'], activeTabIndex: 0, rect: { ...rect, ...broken } })).toThrow(
+				'a floating rect needs finite numbers and a positive width and height'
+			);
+		}
 	});
 });
 
@@ -260,6 +305,28 @@ describe('parseLayoutConfig', () => {
 	});
 });
 
+describe('parseLayoutConfig with floating groups', () => {
+	it('round-trips floating groups through JSON, and drops an empty list', () => {
+		const config: LayoutConfig = {
+			floating: [{ tabs: ['a', 'b'], activeTabIndex: 1, rect }]
+		};
+		expect(parseLayoutConfig(JSON.parse(JSON.stringify(config)))).toEqual(config);
+		expect(parseLayoutConfig({ floating: [] })).toEqual({});
+	});
+
+	it('says what is wrong with a floating group', () => {
+		expect(() => parseLayoutConfig({ floating: {} })).toThrow('config.floating: expected an array');
+		expect(() => parseLayoutConfig({ floating: [{ tabs: ['a'], activeTabIndex: 0 }] })).toThrow(
+			'config.floating[0].rect: expected an object'
+		);
+		expect(() =>
+			parseLayoutConfig({
+				floating: [{ tabs: ['a'], activeTabIndex: 0, rect: { ...rect, width: '3' } }]
+			})
+		).toThrow('config.floating[0].rect.width: expected a number');
+	});
+});
+
 describe('cloneConfig', () => {
 	it('returns an equal config that shares no nodes with the original', () => {
 		const config = threePaneConfig();
@@ -280,6 +347,25 @@ describe('cloneConfig', () => {
 	it('drops an empty popouts array', () => {
 		expect(cloneConfig({ popouts: [] })).toEqual({});
 		expect(cloneConfig({})).toEqual({});
+	});
+});
+
+describe('cloneConfig and areConfigsEquivalent with floating groups', () => {
+	it('copies floating groups deeply', () => {
+		const config: LayoutConfig = { floating: [{ tabs: ['a'], activeTabIndex: 0, rect }] };
+		const copy = cloneConfig(config);
+		expect(copy).toEqual(config);
+		expect(copy.floating![0]!.rect).not.toBe(rect);
+	});
+
+	it('compares floating groups in order, with their rect', () => {
+		const one = { tabs: ['a'], activeTabIndex: 0, rect } as FloatingGroupConfig;
+		const two = { tabs: ['b'], activeTabIndex: 0, rect } as FloatingGroupConfig;
+		expect(areConfigsEquivalent({ floating: [one, two] }, { floating: [one, two] })).toBe(true);
+		expect(areConfigsEquivalent({ floating: [one, two] }, { floating: [two, one] })).toBe(false);
+		const moved = { ...one, rect: { ...rect, x: 11 } };
+		expect(areConfigsEquivalent({ floating: [one] }, { floating: [moved] })).toBe(false);
+		expect(areConfigsEquivalent({ floating: [one] }, {})).toBe(false);
 	});
 });
 
@@ -465,5 +551,100 @@ describe('simplifyTabGroup', () => {
 			],
 			splitPoints: [0.5]
 		});
+	});
+});
+
+describe('simplifyTabGroup with floating groups', () => {
+	it('removes an emptied floating group, and the list once it is empty', () => {
+		const first = { tabs: ['a'], activeTabIndex: 0, rect } as FloatingGroupConfig;
+		const second = { tabs: ['b'], activeTabIndex: 0, rect } as FloatingGroupConfig;
+		const config: LayoutConfig = { ...threePaneConfig(), floating: [first, second] };
+		const root = config.root;
+		(first.tabs as string[]).length = 0;
+
+		simplifyTabGroup(first, buildNodeParentMap(config.root!), config);
+		expect(config.floating).toEqual([second]);
+		expect(config.root).toBe(root);
+
+		(second.tabs as string[]).length = 0;
+		simplifyTabGroup(second, buildNodeParentMap(config.root!), config);
+		expect(config.floating).toBeUndefined();
+	});
+});
+
+describe('findTabGroup', () => {
+	it('finds docked and floating groups, and nothing else', () => {
+		const floating = { tabs: ['e'], activeTabIndex: 0, rect } as FloatingGroupConfig;
+		const config: LayoutConfig = { ...threePaneConfig(), floating: [floating], popouts: ['f'] };
+		const inner = (config.root as SplitConfig).views[1] as SplitConfig;
+		expect(findTabGroup(config, 'c')).toBe(inner.views[0]);
+		expect(findTabGroup(config, 'e')).toBe(floating);
+		expect(findTabGroup(config, 'f')).toBeUndefined();
+		expect(findTabGroup({}, 'a')).toBeUndefined();
+	});
+});
+
+describe('removeView', () => {
+	it('takes a tab out, keeping the active tab, and collapses an emptied pane', () => {
+		const config = threePaneConfig();
+		removeView(config, 'b');
+		const inner = (config.root as SplitConfig).views[1] as SplitConfig;
+		expect(inner.views[0]).toEqual({ tabs: ['c'], activeTabIndex: 0 });
+
+		removeView(config, 'd');
+		expect(config.root).toEqual({
+			direction: 'horizontal',
+			views: [
+				{ tabs: ['a'], activeTabIndex: 0 },
+				{ tabs: ['c'], activeTabIndex: 0 }
+			],
+			splitPoints: [0.4]
+		});
+	});
+
+	it('moves the active tab to the next one when the active tab leaves', () => {
+		const config: LayoutConfig = { root: { tabs: ['a', 'b', 'c'], activeTabIndex: 1 } };
+		removeView(config, 'b');
+		expect(config.root).toEqual({ tabs: ['a', 'c'], activeTabIndex: 1 });
+		removeView(config, 'c');
+		expect(config.root).toEqual({ tabs: ['a'], activeTabIndex: 0 });
+	});
+
+	it('takes a view out of a floating group, the popouts and the maximized view', () => {
+		const config: LayoutConfig = {
+			floating: [{ tabs: ['a'], activeTabIndex: 0, rect }],
+			popouts: ['b', 'c'],
+			maximizedView: 'b'
+		};
+		removeView(config, 'a');
+		removeView(config, 'b');
+		expect(config).toEqual({ popouts: ['c'] });
+		removeView(config, 'c');
+		expect(config.popouts).toBeUndefined();
+	});
+});
+
+describe('floatView', () => {
+	it('moves a docked view into a new floating group on top', () => {
+		const below = { tabs: ['e'], activeTabIndex: 0, rect } as FloatingGroupConfig;
+		const config: LayoutConfig = {
+			root: { tabs: ['a', 'b'], activeTabIndex: 0 },
+			floating: [below]
+		};
+		const where = { x: 80, y: 60, width: 420, height: 520 };
+
+		floatView(config, 'a', where);
+
+		expect(config).toEqual({
+			root: { tabs: ['b'], activeTabIndex: 0 },
+			floating: [below, { tabs: ['a'], activeTabIndex: 0, rect: where }]
+		});
+		expect(config.floating![1]!.rect).not.toBe(where);
+	});
+
+	it('floats a view that was alone, leaving an empty layout behind', () => {
+		const config: LayoutConfig = { root: { tabs: ['a'], activeTabIndex: 0 } };
+		floatView(config, 'a', rect);
+		expect(config).toEqual({ floating: [{ tabs: ['a'], activeTabIndex: 0, rect }] });
 	});
 });

@@ -5,6 +5,8 @@ import {
 	roundSplitPoint
 } from './internal-utils.ts';
 import type {
+	FloatingGroupConfig,
+	FloatingRect,
 	Id,
 	LayoutConfig,
 	NodeConfig,
@@ -13,14 +15,21 @@ import type {
 	TabGroupConfig
 } from './types.ts';
 
-/// Remove a tab group that has become empty, then collapse any resulting
-/// single-child splits up the tree.
+/// Remove a tab group that has become empty: a floating group leaves `config.floating`; a docked
+/// one leaves its split, then any resulting single-child splits collapse up the tree.
 export function simplifyTabGroup(
 	tabGroup: TabGroupConfig,
-	nodeParentMap: SvelteMap<NodeConfig, ParentEntry>,
+	nodeParentMap: ReadonlyMap<NodeConfig, ParentEntry>,
 	config: LayoutConfig
 ) {
 	if (tabGroup.tabs.length > 0) return;
+
+	const floatingIndex = config.floating?.indexOf(tabGroup as FloatingGroupConfig) ?? -1;
+	if (floatingIndex !== -1) {
+		config.floating!.splice(floatingIndex, 1);
+		if (config.floating!.length === 0) config.floating = undefined;
+		return;
+	}
 
 	const parent = nodeParentMap.get(tabGroup);
 	if (!parent) {
@@ -74,10 +83,32 @@ export function buildNodeParentMap(root: NodeConfig): SvelteMap<NodeConfig, Pare
 	return map;
 }
 
+function areTabGroupConfigsEquivalent(
+	tabGroup1: TabGroupConfig,
+	tabGroup2: TabGroupConfig
+): boolean {
+	if (tabGroup1.activeTabIndex !== tabGroup2.activeTabIndex) return false;
+	if (tabGroup1.tabs.length !== tabGroup2.tabs.length) return false;
+	for (let i = 0; i < tabGroup1.tabs.length; i++) {
+		if (tabGroup1.tabs[i] !== tabGroup2.tabs[i]) return false;
+	}
+	return true;
+}
+
 /// returns true if the two configs are equivalent (i.e. they represent the same layout), false otherwise
 export function areConfigsEquivalent(config1: LayoutConfig, config2: LayoutConfig): boolean {
 	if (config1.maximizedView !== config2.maximizedView) return false;
 	if ((config1.root === undefined) !== (config2.root === undefined)) return false;
+	const floating1 = config1.floating ?? [];
+	const floating2 = config2.floating ?? [];
+	if (floating1.length !== floating2.length) return false;
+	for (let i = 0; i < floating1.length; i++) {
+		const [group1, group2] = [floating1[i]!, floating2[i]!];
+		if (!areTabGroupConfigsEquivalent(group1, group2)) return false;
+		const [rect1, rect2] = [group1.rect, group2.rect];
+		if (rect1.x !== rect2.x || rect1.y !== rect2.y) return false;
+		if (rect1.width !== rect2.width || rect1.height !== rect2.height) return false;
+	}
 	const popouts1 = [...(config1.popouts ?? [])].sort();
 	const popouts2 = [...(config2.popouts ?? [])].sort();
 	if (popouts1.length !== popouts2.length) return false;
@@ -102,18 +133,6 @@ export function areConfigsEquivalent(config1: LayoutConfig, config2: LayoutConfi
 		if (split1.views.length !== split2.views.length) return false;
 		for (let i = 0; i < split1.views.length; i++) {
 			if (!areNodeConfigsEquivalent(split1.views[i]!, split2.views[i]!)) return false;
-		}
-		return true;
-	};
-
-	const areTabGroupConfigsEquivalent = (
-		tabGroup1: TabGroupConfig,
-		tabGroup2: TabGroupConfig
-	): boolean => {
-		if (tabGroup1.activeTabIndex !== tabGroup2.activeTabIndex) return false;
-		if (tabGroup1.tabs.length !== tabGroup2.tabs.length) return false;
-		for (let i = 0; i < tabGroup1.tabs.length; i++) {
-			if (tabGroup1.tabs[i] !== tabGroup2.tabs[i]) return false;
 		}
 		return true;
 	};
@@ -148,13 +167,14 @@ export function validateConfig<V>(
 		throw new Error(`unknown maximizedView id "${config.maximizedView}"`);
 	}
 
+	// A view is shown in one place: one tab, docked or floating, or one popout.
+	const seenIds = new Set<Id>();
+
 	for (const id of config.popouts ?? []) {
 		if (!views.has(id)) throw new Error(`unknown popout id "${id}"`);
+		if (seenIds.has(id)) throw new Error(`duplicate popout id "${id}"`);
+		seenIds.add(id);
 	}
-
-	if (!config.root) return;
-
-	const seenIds = new Set<Id>();
 
 	const validateTabGroup = (tabGroup: TabGroupConfig) => {
 		if (tabGroup.activeTabIndex < 0 || tabGroup.activeTabIndex >= tabGroup.tabs.length) {
@@ -189,7 +209,15 @@ export function validateConfig<V>(
 			? validateSplit(node as SplitConfig)
 			: validateTabGroup(node as TabGroupConfig);
 
-	validateNode(config.root);
+	for (const group of config.floating ?? []) {
+		validateTabGroup(group);
+		const { x, y, width, height } = group.rect;
+		if (![x, y, width, height].every(Number.isFinite) || width <= 0 || height <= 0) {
+			throw new Error('a floating rect needs finite numbers and a positive width and height');
+		}
+	}
+
+	if (config.root) validateNode(config.root);
 }
 
 function parseNodeConfig(object: unknown, path: string): NodeConfig {
@@ -236,6 +264,19 @@ function parseTabGroupConfig(object: unknown, path: string): TabGroupConfig {
 	};
 }
 
+function parseFloatingGroupConfig(object: unknown, path: string): FloatingGroupConfig {
+	const group = parseTabGroupConfig(object, path);
+	const { rect } = object as Record<string, unknown>;
+	if (typeof rect !== 'object' || rect === null)
+		throw new Error(`${path}.rect: expected an object`);
+	const { x, y, width, height } = rect as Record<string, unknown>;
+	const numbers = { x, y, width, height };
+	for (const [key, value] of Object.entries(numbers)) {
+		if (typeof value !== 'number') throw new Error(`${path}.rect.${key}: expected a number`);
+	}
+	return { ...group, rect: numbers as FloatingRect };
+}
+
 function parseId(object: unknown, path: string): Id {
 	if (!object || typeof object !== 'string')
 		throw new Error(`${path}: expected a non-empty string`);
@@ -246,9 +287,17 @@ function parseId(object: unknown, path: string): Id {
 /// throwing an error if the value does not match the expected shape.
 export function parseLayoutConfig(object: unknown): LayoutConfig {
 	if (typeof object !== 'object' || object === null) throw new Error('root: expected an object');
-	const { root, maximizedView, popouts } = object as Record<string, unknown>;
+	const { root, floating, maximizedView, popouts } = object as Record<string, unknown>;
 	const result: LayoutConfig = {};
 	if (root != null) result.root = parseNodeConfig(root, 'config.root');
+	if (floating != null) {
+		if (!Array.isArray(floating)) throw new Error('config.floating: expected an array');
+		if (floating.length > 0) {
+			result.floating = floating.map((group, i) =>
+				parseFloatingGroupConfig(group, `config.floating[${i}]`)
+			);
+		}
+	}
 	if (maximizedView != null) result.maximizedView = parseId(maximizedView, 'config.maximizedView');
 	if (Array.isArray(popouts) && popouts.length > 0)
 		result.popouts = popouts.map((p, i) => parseId(p, `config.popouts[${i}]`));
@@ -278,9 +327,72 @@ export function cloneConfig(config: LayoutConfig): LayoutConfig {
 		};
 	};
 
+	const cloneFloatingGroupConfig = (group: FloatingGroupConfig): FloatingGroupConfig => ({
+		...cloneTabGroupConfig(group),
+		rect: { x: group.rect.x, y: group.rect.y, width: group.rect.width, height: group.rect.height }
+	});
+
 	return {
 		...(config.root ? { root: cloneNodeConfig(config.root) } : {}),
+		...(config.floating && config.floating.length > 0
+			? { floating: config.floating.map(cloneFloatingGroupConfig) }
+			: {}),
 		...(config.maximizedView ? { maximizedView: config.maximizedView } : {}),
 		...(config.popouts && config.popouts.length > 0 ? { popouts: [...config.popouts] } : {})
 	};
+}
+
+/// Returns the tab group, docked or floating, that has the view `id` as one of its tabs, or
+/// undefined when the view isn't in a tab group (absent, or only in `popouts`).
+///
+/// ```ts
+/// const group = findTabGroup(config, 'docs');
+/// if (group) group.activeTabIndex = group.tabs.indexOf('docs');
+/// ```
+export function findTabGroup(config: LayoutConfig, id: Id): TabGroupConfig | undefined {
+	const walk = (node: NodeConfig): TabGroupConfig | undefined => {
+		if (nodeConfigType(node) === 'tabGroup') {
+			return (node as TabGroupConfig).tabs.includes(id) ? (node as TabGroupConfig) : undefined;
+		}
+		for (const child of (node as SplitConfig).views) {
+			const found = walk(child);
+			if (found) return found;
+		}
+		return undefined;
+	};
+	return (
+		(config.root && walk(config.root)) ?? config.floating?.find((group) => group.tabs.includes(id))
+	);
+}
+
+/// Takes the view `id` out of the layout, in place: out of its tab group (a group left empty is
+/// removed, and the splits it leaves collapse), out of `popouts`, and out of `maximizedView`.
+/// Does nothing for a view the layout doesn't show.
+export function removeView(config: LayoutConfig, id: Id): void {
+	const group = findTabGroup(config, id);
+	if (group) {
+		const index = group.tabs.indexOf(id);
+		group.tabs.splice(index, 1);
+		if (index < group.activeTabIndex) group.activeTabIndex -= 1;
+		group.activeTabIndex = Math.max(Math.min(group.activeTabIndex, group.tabs.length - 1), 0);
+		const parents = config.root ? buildNodeParentMap(config.root) : new Map();
+		simplifyTabGroup(group, parents, config);
+	}
+	if (config.popouts?.includes(id)) {
+		const remaining = config.popouts.filter((popout) => popout !== id);
+		config.popouts = remaining.length > 0 ? remaining : undefined;
+	}
+	if (config.maximizedView === id) config.maximizedView = undefined;
+}
+
+/// Floats the view `id` in a group of its own at `rect`, on top of the other floating groups,
+/// in place: the view first leaves wherever it was (see `removeView`).
+///
+/// ```ts
+/// floatView(config, 'docs', { x: 80, y: 60, width: 420, height: 520 });
+/// ```
+export function floatView(config: LayoutConfig, id: Id, rect: FloatingRect): void {
+	removeView(config, id);
+	const group: FloatingGroupConfig = { tabs: [id], activeTabIndex: 0, rect: { ...rect } };
+	config.floating = [...(config.floating ?? []), group];
 }

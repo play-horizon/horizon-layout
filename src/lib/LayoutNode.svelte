@@ -35,7 +35,8 @@
 		keyboardControls,
 		formatRatio,
 		formatRatioForAria,
-		baseClass
+		baseClass,
+		registerTabList
 	}: {
 		config: NodeConfig;
 		views: SvelteMap<Id, View>;
@@ -57,6 +58,7 @@
 		formatRatio: (ratio: number) => string;
 		formatRatioForAria: (ratio: number) => number;
 		baseClass: string;
+		registerTabList: (config: TabGroupConfig, element: HTMLElement) => () => void;
 	} = $props();
 </script>
 
@@ -82,6 +84,7 @@
 		{formatRatio}
 		{formatRatioForAria}
 		{baseClass}
+		{registerTabList}
 	></HorizonSplit>
 {:else}
 	<HorizonTabGroup
@@ -98,5 +101,6 @@
 		controls={tabgroupControls}
 		keyboardControls={keyboardControls.tabGroupControls}
 		baseClass={`${baseClass}-tabgroup`}
+		{registerTabList}
 	></HorizonTabGroup>
 {/if}

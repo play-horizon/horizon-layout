@@ -33,7 +33,8 @@
 		keyboardControls,
 		formatRatio,
 		formatRatioForAria,
-		baseClass
+		baseClass,
+		registerTabList
 	}: {
 		config: SplitConfig;
 		views: SvelteMap<Id, View>;
@@ -55,6 +56,7 @@
 		formatRatio: (ratio: number) => string;
 		formatRatioForAria: (ratio: number) => number;
 		baseClass: string;
+		registerTabList: (config: TabGroupConfig, element: HTMLElement) => () => void;
 	} = $props();
 
 	let splitContainer = $state<HTMLElement | null>(null);
@@ -160,6 +162,7 @@
 				{formatRatio}
 				{formatRatioForAria}
 				{baseClass}
+				{registerTabList}
 			></HorizonLayoutNode>
 		</div>
 

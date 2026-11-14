@@ -18,7 +18,9 @@
 		hideTabBar,
 		controls,
 		keyboardControls,
-		baseClass
+		baseClass,
+		onMoveStart,
+		registerTabList
 	}: {
 		config: TabGroupConfig;
 		views: SvelteMap<Id, View>;
@@ -33,7 +35,17 @@
 		controls: Snippet<[Id]>[];
 		keyboardControls: KeyboardControl<TabGroupConfig>[];
 		baseClass: string;
+		/** Set on a floating group: a press on the tab bar outside the tabs and controls moves it. */
+		onMoveStart?: (event: PointerEvent) => void;
+		/** Records this group's tab list element, so the layout can move focus to it. */
+		registerTabList: (config: TabGroupConfig, element: HTMLElement) => () => void;
 	} = $props();
+
+	function handleTabBarPointerDown(event: PointerEvent) {
+		if (!onMoveStart || !(event.target instanceof Element)) return;
+		if (event.target.closest(`[role="tab"], .${CSS.escape(baseClass)}__controls`)) return;
+		onMoveStart(event);
+	}
 
 	function handleKeyDown(event: KeyboardEvent) {
 		const modifier = getModifier(event);
@@ -129,9 +141,23 @@
 
 <section class={baseClass}>
 	{#if !hideTabBar}
-		<div class="{baseClass}__tab-bar">
+		<!-- Moving a floating group with the pointer (a touch mustn't pan instead, which would cancel
+		the move); the keyboard moves it from its frame. -->
+		<div
+			class="{baseClass}__tab-bar"
+			role="presentation"
+			style:touch-action={onMoveStart ? 'none' : undefined}
+			onpointerdown={handleTabBarPointerDown}
+		>
 			<!-- Tab list - keyboard navigation is handled on the list container. -->
-			<div role="tablist" tabindex={0} class="{baseClass}__tabs" onkeydown={handleKeyDown}>
+			<div
+				role="tablist"
+				tabindex={0}
+				class="{baseClass}__tabs"
+				style:touch-action={onMoveStart ? 'none' : undefined}
+				onkeydown={handleKeyDown}
+				{@attach (element) => registerTabList(config, element)}
+			>
 				{#each config.tabs as tabId, index (tabId)}
 					{@const tab = views.get(tabId)}
 					<div

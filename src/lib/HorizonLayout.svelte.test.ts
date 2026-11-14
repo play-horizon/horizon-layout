@@ -8,6 +8,7 @@ import { flushSync } from 'svelte';
 import { beforeEach, describe, expect, it } from 'vitest';
 import LayoutHarness from '../test/LayoutHarness.svelte';
 import { mounts } from '../test/ViewBody.svelte';
+import { removeView } from './utils.ts';
 import type { KeyboardControls, LayoutConfig, SplitConfig, TabGroupConfig } from './types.ts';
 
 function twoPanes(): LayoutConfig {
@@ -89,5 +90,45 @@ describe('HorizonLayout', () => {
 
 		await fireEvent.keyDown(screen.getByRole('slider'), { key: 'ArrowRight' });
 		expect((state.config.root as SplitConfig).splitPoints).toEqual([0.5]);
+	});
+});
+
+describe('outside changes', () => {
+	it('keep the panels after a removed pane or floating group mounted', () => {
+		const state = $state({
+			config: {
+				root: {
+					direction: 'horizontal',
+					views: [
+						{ tabs: ['a'], activeTabIndex: 0 },
+						{ tabs: ['b'], activeTabIndex: 0 },
+						{ tabs: ['c'], activeTabIndex: 0 }
+					],
+					splitPoints: [0.3, 0.6]
+				},
+				floating: [
+					{ tabs: ['d'], activeTabIndex: 0, rect: { x: 0, y: 0, width: 200, height: 200 } },
+					{ tabs: ['e'], activeTabIndex: 0, rect: { x: 50, y: 50, width: 200, height: 200 } }
+				]
+			} as LayoutConfig
+		});
+		render(LayoutHarness, {
+			props: {
+				get config() {
+					return state.config;
+				},
+				set config(value) {
+					state.config = value;
+				},
+				ids: ['a', 'b', 'c', 'd', 'e']
+			}
+		});
+
+		removeView(state.config, 'a');
+		removeView(state.config, 'd');
+		flushSync();
+
+		expect(screen.queryByText('Body of a')).toBeNull();
+		expect(Object.fromEntries(mounts)).toEqual({ a: 1, b: 1, c: 1, d: 1, e: 1 });
 	});
 });

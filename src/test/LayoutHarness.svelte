@@ -36,7 +36,10 @@ A HorizonLayout for the component tests: one view per id, titled "Title of <id>"
 		new SvelteMap<Id, View>(ids.map((id) => [id, { title: `Title of ${id}`, snippet: body(id) }]))
 	);
 
-	const translations = { resizePane: (pane: number) => `Resize pane ${pane}` };
+	const translations = {
+		resizePane: (pane: number) => `Resize pane ${pane}`,
+		floatingPanel: (title: string) => `${title}, floating`
+	};
 </script>
 
 {#if keyboardControls}

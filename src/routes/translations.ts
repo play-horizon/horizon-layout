@@ -6,5 +6,6 @@
 import type { LayoutTranslations } from '#lib/types.js';
 
 export const translations: LayoutTranslations = {
-	resizePane: (pane) => `Resize pane ${pane}`
+	resizePane: (pane) => `Resize pane ${pane}`,
+	floatingPanel: (title) => `${title}, floating panel`
 };
