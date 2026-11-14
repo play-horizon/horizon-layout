@@ -12,7 +12,8 @@ A HorizonLayout for the component tests: one view per id, titled "Title of <id>"
 	let {
 		config = $bindable(),
 		ids,
-		keyboardControls
+		keyboardControls,
+		minWidthRatio
 	}: {
 		/** The layout, bound both ways. */
 		config: LayoutConfig;
@@ -20,6 +21,8 @@ A HorizonLayout for the component tests: one view per id, titled "Title of <id>"
 		ids: Id[];
 		/** Passed to HorizonLayout when given; its defaults otherwise. */
 		keyboardControls?: KeyboardControls;
+		/** Passed to HorizonLayout; its default when undefined. */
+		minWidthRatio?: number;
 	} = $props();
 
 	function body(id: Id) {
@@ -43,7 +46,7 @@ A HorizonLayout for the component tests: one view per id, titled "Title of <id>"
 </script>
 
 {#if keyboardControls}
-	<HorizonLayout bind:config {views} {translations} {keyboardControls} />
+	<HorizonLayout bind:config {views} {translations} {keyboardControls} {minWidthRatio} />
 {:else}
-	<HorizonLayout bind:config {views} {translations} />
+	<HorizonLayout bind:config {views} {translations} {minWidthRatio} />
 {/if}

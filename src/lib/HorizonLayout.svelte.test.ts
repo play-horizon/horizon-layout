@@ -5,12 +5,21 @@
  * @module
  */
 import { fireEvent, render, screen } from '@testing-library/svelte';
-import { flushSync, tick } from 'svelte';
+import { createRawSnippet, flushSync, tick } from 'svelte';
+import { SvelteMap } from 'svelte/reactivity';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import LayoutHarness from '../test/LayoutHarness.svelte';
+import HorizonLayout from './HorizonLayout.svelte';
 import { mounts } from '../test/ViewBody.svelte';
 import { removeView } from './utils.ts';
-import type { KeyboardControls, LayoutConfig, SplitConfig, TabGroupConfig } from './types.ts';
+import type {
+	Id,
+	KeyboardControls,
+	LayoutConfig,
+	SplitConfig,
+	TabGroupConfig,
+	View
+} from './types.ts';
 
 function twoPanes(): LayoutConfig {
 	return {
@@ -111,6 +120,33 @@ describe('HorizonLayout', () => {
 		state.config = twoPanes();
 		flushSync();
 		expect(screen.getAllByRole('tablist')).toHaveLength(2);
+	});
+	it('validates the config again when the minimum ratios tighten', () => {
+		const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const props = $state({ config: twoPanes(), minWidthRatio: 0.1 });
+		(props.config.root as SplitConfig).splitPoints = [0.3];
+		render(LayoutHarness, {
+			props: {
+				get config() {
+					return props.config;
+				},
+				set config(value) {
+					props.config = value;
+				},
+				get minWidthRatio() {
+					return props.minWidthRatio;
+				},
+				ids: ['a', 'b', 'c', 'd']
+			}
+		});
+		expect(screen.getAllByRole('tablist')).toHaveLength(2);
+
+		props.minWidthRatio = 0.4;
+		flushSync();
+		expect(screen.queryByRole('tablist')).toBeNull();
+		expect(error).toHaveBeenCalledWith(
+			'HorizonLayout: config.root.splitPoints[0]: leaves a pane smaller than the minimum ratio'
+		);
 	});
 });
 
@@ -273,5 +309,37 @@ describe('outside changes', () => {
 
 		expect(screen.queryByText('Body of a')).toBeNull();
 		expect(Object.fromEntries(mounts)).toEqual({ a: 1, b: 1, c: 1, d: 1, e: 1 });
+	});
+});
+
+describe('the views map', () => {
+	it('is validated again when a view the layout shows leaves it', () => {
+		const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const snippet = createRawSnippet(() => ({ render: () => '<p>Body</p>' }));
+		const views = new SvelteMap<Id, View>(
+			['a', 'b', 'c'].map((id) => [id, { title: `Title of ${id}`, snippet }])
+		);
+		const state = $state({ config: twoPanes() });
+		render(HorizonLayout, {
+			props: {
+				get config() {
+					return state.config;
+				},
+				set config(value) {
+					state.config = value;
+				},
+				views,
+				translations: { resizePane: () => 'Resize', floatingPanel: () => 'Floating' }
+			}
+		});
+		expect(screen.getAllByRole('tablist')).toHaveLength(2);
+
+		views.delete('c');
+		flushSync();
+
+		expect(screen.queryByRole('tablist')).toBeNull();
+		expect(error).toHaveBeenCalledWith(
+			'HorizonLayout: config.root.views[1].tabs[0]: unknown view id "c"'
+		);
 	});
 });

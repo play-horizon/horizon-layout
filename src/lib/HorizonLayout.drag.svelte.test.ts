@@ -8,7 +8,7 @@ import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { flushSync } from 'svelte';
 import { describe, expect, it } from 'vitest';
 import LayoutHarness from '../test/LayoutHarness.svelte';
-import type { LayoutConfig } from './types.ts';
+import type { LayoutConfig, SplitConfig } from './types.ts';
 
 function twoPanes(): LayoutConfig {
 	return {
@@ -23,9 +23,9 @@ function twoPanes(): LayoutConfig {
 	};
 }
 
-/** Renders the harness with a config held in `$state`, and returns it. */
+/** Renders the harness with a config and view ids held in `$state`, and returns them. */
 function renderLayout(initial: LayoutConfig) {
-	const state = $state({ config: initial });
+	const state = $state({ config: initial, ids: ['a', 'b', 'c', 'd'] });
 	const { container } = render(LayoutHarness, {
 		props: {
 			get config() {
@@ -34,7 +34,9 @@ function renderLayout(initial: LayoutConfig) {
 			set config(value) {
 				state.config = value;
 			},
-			ids: ['a', 'b', 'c', 'd']
+			get ids() {
+				return state.ids;
+			}
 		}
 	});
 	return { state, container };
@@ -157,6 +159,22 @@ describe('dragging a tab', () => {
 		expect(state.config).toEqual(twoPanes());
 		expect(tab('Title of b')).toBeTruthy();
 		expect(container.querySelector('.horizon-layout-tabgroup__drop-zones')).toBeNull();
+	});
+
+	it('goes on when a view is added to the views map', async () => {
+		const { state, container } = renderLayout(twoPanes());
+		await startDrag('Title of b');
+
+		state.ids = [...state.ids, 'e'];
+		flushSync();
+		const ends = container.querySelectorAll('.horizon-layout-tabgroup__tab-drop-zone--end');
+		await dropOn(ends[1]!);
+		await fireEvent.dragEnd(window);
+
+		expect((state.config.root as SplitConfig).views).toEqual([
+			{ tabs: ['a'], activeTabIndex: 0 },
+			{ tabs: ['c', 'b'], activeTabIndex: 1 }
+		]);
 	});
 
 	it('is cancelled by a change of the config outside, which a later drop leaves alone', async () => {

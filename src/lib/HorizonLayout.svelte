@@ -386,34 +386,44 @@ groups they make, focus following a moved tab, and the popout windows' lifecycle
 		internalConfig?.root ? buildNodeParentMap(internalConfig.root) : new SvelteMap()
 	);
 
+	// The validation inputs the config was last validated with (not state: only the effect below
+	// reads it).
+	let validatedWith: unknown[] = [];
+
 	// Propagate external config changes → internalConfig.
 	//
 	// External config is always authoritative.
-	// If it changes during a drag operation, the drag is cancelled
-	// and the new config is applied immediately.
+	// It is validated at every run: the effect reads what the validation reads (skipValidation, the
+	// minimum ratios, maxDepth, the views map and the views the config names in it), so a change of
+	// those that makes it invalid shows nothing. If it changes during a drag operation, or becomes
+	// invalid, the drag is cancelled, and the new config is applied (or, when invalid, the layout
+	// shows nothing) immediately.
 	$effect(() => {
-		// Validation-time inputs are read on every run
-		// so that changing them revalidates the config.
-		void minWidthRatio;
-		void minHeightRatio;
-		void skipValidation;
-		void views;
+		// The inputs of the validation: when one changes, the config is validated again even if
+		// it is unchanged (tighter minimum ratios can make it invalid).
+		// The ids are read from the map, so adding or removing a view revalidates too.
+		const viewIds = JSON.stringify([...views.keys()]);
+		const inputs = [minWidthRatio, minHeightRatio, maxDepth, skipValidation, views, viewIds];
+		const inputsChanged = inputs.some((input, i) => input !== validatedWith[i]);
+		validatedWith = inputs;
 
 		const external = $state.snapshot(config);
-		const internal = untrack(() => internalConfig && $state.snapshot(internalConfig));
-
-		if (internal && areConfigsEquivalent(internal, external)) {
-			return;
-		}
-
-		if (untrack(() => dragData)) {
-			dragData = null;
-		}
+		// The layout as it was before a drag in progress took its tab out.
+		const shown = untrack(() =>
+			dragData ? dragData.configBeforeDrag : internalConfig && $state.snapshot(internalConfig)
+		);
+		const unchanged = shown !== null && areConfigsEquivalent(shown, external);
+		if (unchanged && !inputsChanged) return;
 
 		if (!isValidConfig(external)) {
+			if (untrack(() => dragData)) dragData = null;
 			internalConfig = null;
 			return;
 		}
+		// Still valid and unchanged: a drag in progress goes on.
+		if (unchanged) return;
+
+		if (untrack(() => dragData)) dragData = null;
 		// Applied in place, so the panels still in the same split stay mounted.
 		untrack(() => {
 			if (internalConfig) reconcileConfig(internalConfig, external);

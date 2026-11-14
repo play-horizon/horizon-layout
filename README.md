@@ -129,7 +129,9 @@ interface View {
 }
 ```
 
-Pass views as a `SvelteMap<Id, View>`. The map is reactive.
+Pass views as a `SvelteMap<Id, View>`. The map is reactive: adding or removing a view validates
+the config again, so take a view out of `config` (with `removeView`) before, or in the same
+update as, deleting it from the map; a config still showing a deleted view is invalid.
 
 ---
 
