@@ -4,9 +4,12 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   check:
-    name: Type check, lint, format & test
+    name: Type check, lint, format, test & build
     runs-on: ubuntu-latest
 
     steps:
@@ -38,6 +41,9 @@ jobs:
 
       - name: Unit tests
         run: pnpm run test
+
+      - name: Build
+        run: pnpm run build
 
   release:
     name: Release & Publish
