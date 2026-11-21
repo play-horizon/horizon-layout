@@ -2,9 +2,9 @@
  * Vite configuration of the demo site (the SvelteKit app in `src/routes`, built with
  * adapter-static for GitHub Pages under `BASE_PATH`, without version polling, with its Mingcute
  * icons compiled into Svelte components by unplugin-icons) and of the tests: vitest runs the
- * `*.test.ts` files under `src` in jsdom with Svelte's browser build (`svelteTesting`), which also
- * unmounts the components a test rendered once it ends; `src/test/setup.ts` fills in the
- * browser APIs jsdom lacks.
+ * `*.test.ts` files under `src` and `scripts` in jsdom with Svelte's browser build
+ * (`svelteTesting`), which also unmounts the components a test rendered once it ends;
+ * `src/test/setup.ts` fills in the browser APIs jsdom lacks.
  * @module
  */
 import adapter from '@sveltejs/adapter-static';
@@ -34,7 +34,7 @@ export default defineConfig({
 	],
 	test: {
 		environment: 'jsdom',
-		include: ['src/**/*.test.ts'],
+		include: ['src/**/*.test.ts', 'scripts/**/*.test.ts'],
 		setupFiles: ['src/test/setup.ts']
 	}
 });

@@ -1,0 +1,71 @@
+name: Vulnerability audit
+
+# Checks every package of the lockfile, production and development, against the npm advisory
+# database once a day, so a vulnerability published after a dependency was added still surfaces.
+on:
+  schedule:
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Audit dependencies
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+
+      # The audit reads the lockfile alone: nothing is installed, so no dependency script runs.
+      # Moderate is the threshold: below it, advisories are rated as having little or no impact,
+      # and failing on them would keep the check red on findings nobody needs to act on. The
+      # summary still counts them. The report decides the result: pnpm exits non-zero both on
+      # findings and when it fails.
+      - name: Audit
+        run: |
+          report="$RUNNER_TEMP/audit.json"
+          status=0
+          pnpm audit --audit-level moderate --json > "$report" || status=$?
+          if ! jq --exit-status '.metadata.vulnerabilities' "$report" > /dev/null; then
+            echo "::error::pnpm audit produced no report."
+            cat "$report"
+            exit 1
+          fi
+          {
+            echo '## Vulnerability audit'
+            echo
+            jq --raw-output '.metadata.vulnerabilities
+              | "Critical: \(.critical), high: \(.high), moderate: \(.moderate), low: \(.low), info: \(.info)."' "$report"
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+          if jq --exit-status '.metadata.vulnerabilities | .critical + .high + .moderate == 0' "$report" > /dev/null; then
+            if [ "$status" -ne 0 ]; then
+              echo "::error::pnpm audit failed with status $status."
+              exit 1
+            fi
+            echo 'No known vulnerability at moderate severity or above.' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          {
+            echo '| Severity | Package | Installed | Patched | Advisory |'
+            echo '|---|---|---|---|---|'
+            jq --raw-output '
+              def rank: {critical: 0, high: 1, moderate: 2}[.];
+              def cell: gsub("\\|"; "\\|");
+              [.advisories[] | select(.severity | rank != null)]
+              | sort_by(.severity | rank)[]
+              | "| \(.severity) | `\(.module_name)` | \([.findings[].version] | unique | join(", "))"
+                + " | `\(.patched_versions | cell)` | [\(.github_advisory_id)](\(.url)): \(.title | cell) |"' "$report"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo '::error::Known vulnerabilities found; see the job summary.'
+          exit 1
