@@ -50,7 +50,8 @@ pnpm build      # builds the demo and packages the library
   `FIX: keep focus on the tab after a drop`, `DOCS: document maximizedView`. Add a short body
   only when the why isn't obvious.
 - Add or update tests with every change: unit tests in `src/lib/*.test.ts`, component tests in
-  `src/lib/*.svelte.test.ts` (rendered through `src/test/LayoutHarness.svelte`).
+  `src/lib/*.svelte.test.ts` (rendered through `src/test/LayoutHarness.svelte`), and the tests of
+  the repository's scripts in `scripts/**/*.test.ts`.
 - Every pull request is reviewed by at least one maintainer before it is
   merged. An automated AI review may also comment; maintainers decide which of
   its suggestions apply.
@@ -79,11 +80,32 @@ the lockfile alone, without installing anything, and list their findings in the 
   production and development, and fails on any known vulnerability rated moderate or above.
   Below moderate, advisories are rated as having little or no impact; the summary still counts
   them. Run it locally with `pnpm audit --audit-level moderate`.
-- **Outdated dependencies** (`.github/workflows/outdated.yml`) runs `pnpm outdated` and fails
-  while a direct dependency has a newer version than the one the lockfile resolves, or pnpm a
-  newer version than `packageManager` pins. Run it locally with `pnpm outdated`, which also lists
-  Node.js against the lower bound of `devEngines`; the workflow leaves that row out, as CI
-  always runs the newest release of the Node line `.node-version` names.
+- **Outdated dependencies** (`.github/workflows/outdated.yml`) runs
+  `node scripts/dependencies/outdated.ts`: it fails while a direct dependency has a newer version
+  than the one the lockfile resolves, or pnpm a newer version than `packageManager` pins, unless
+  the dependency is held back on purpose. `node` and `@types/node` follow the Node.js line CI runs
+  (`.node-version`) rather than the newest release: `node` is left out (`pnpm outdated` compares the
+  minimum of `devEngines` with the newest Node), and `@types/node` is outdated only when its major
+  isn't that line's, or when a newer release of that line exists. Run it locally with
+  `node scripts/dependencies/outdated.ts`.
+
+  `scripts/dependencies/held-back.json` lists the dependencies held back, each with why and the day
+  to look at it again, in the shape and with the rules of horizon-design's list:
+
+  ```json
+  { "typescript": { "reason": "…", "recheck": "2027-01-21" } }
+  ```
+
+  A hold keeps a dependency off its next breaking release only: while no release newer than its
+  version is compatible with it (`^current`: the same major, or the same minor below 1.0), it
+  passes and is listed in the report with its reason; a newer compatible release still fails the
+  check. An entry fails the check the day after its recheck day (UTC; look at the reason again,
+  then update the dependency or move the day), and when it is stale (its package has no newer
+  version any more: remove the entry). The check also fails on an entry without a reason or a real
+  `YYYY-MM-DD` day or with another field, on a held-back package whose versions aren't releases (a
+  git or `link:` dependency has no compatible releases), and when the newest compatible release of
+  a held-back package can't be looked up. A dependency is held back only for a real blocker (a dependency of
+  ours that doesn't support its new version yet), never to put off moving to it.
 
 GitHub pauses the scheduled workflows of a public repository after 60 days without activity;
 the Actions tab turns them back on.

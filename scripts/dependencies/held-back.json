@@ -1,0 +1,6 @@
+{
+	"typescript": {
+		"reason": "SvelteKit, svelte-check and svelte-package don't support TypeScript 7 yet (their typescript peer range stops at 6)",
+		"recheck": "2027-01-21"
+	}
+}
