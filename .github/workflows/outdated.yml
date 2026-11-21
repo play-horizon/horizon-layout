@@ -1,0 +1,62 @@
+name: Outdated dependencies
+
+# Fails once a day while a direct dependency, or pnpm in `packageManager`, has a newer version
+# than the one the lockfile resolves (or `packageManager` pins), and lists them.
+on:
+  schedule:
+    - cron: '23 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  outdated:
+    name: Check for newer versions
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+
+      # Reads the lockfile alone: nothing is installed, so no dependency script runs. pnpm exits
+      # non-zero both when something is outdated and when it fails, so the report decides which.
+      # pnpm also lists Node.js, comparing the lower bound of the `devEngines` range with the
+      # newest Node release; that row is dropped, as raising the bound to each new release would
+      # lock out every other Node line. CI runs the newest release of the line `.node-version`
+      # names.
+      - name: Check
+        run: |
+          report="$RUNNER_TEMP/outdated.json"
+          status=0
+          pnpm outdated --format json > "$report" || status=$?
+          if ! jq --exit-status 'type == "object"' "$report" > /dev/null; then
+            echo "::error::pnpm outdated produced no report."
+            cat "$report"
+            exit 1
+          fi
+          if [ "$status" -ne 0 ] && jq --exit-status 'length == 0' "$report" > /dev/null; then
+            echo "::error::pnpm outdated failed with status $status."
+            exit 1
+          fi
+          echo '## Outdated dependencies' >> "$GITHUB_STEP_SUMMARY"
+          echo >> "$GITHUB_STEP_SUMMARY"
+          if jq --exit-status 'del(.node) | length == 0' "$report" > /dev/null; then
+            echo 'Every direct dependency is on its latest version.' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          {
+            echo '| Package | Type | Current | Latest |'
+            echo '|---|---|---|---|'
+            jq --raw-output 'del(.node) | to_entries | sort_by(.key)[]
+              | "| `\(.key)` | \(.value.dependencyType) | \(.value.current) | \(.value.latest) |"' "$report"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo '::error::Direct dependencies have newer versions; see the job summary.'
+          exit 1
