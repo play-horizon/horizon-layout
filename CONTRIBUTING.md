@@ -14,8 +14,8 @@ license. Bug reports, fixes, docs and new keyboard controls are all welcome.
 
 ## Setup
 
-Requirements: Node.js 24 and pnpm 12, the versions CI uses. `devEngines` in `package.json`
-requires Node 24.2 or later, and pnpm refuses to install with an older one (apps that install the
+Requirements: Node.js 26 and pnpm 12, the versions CI uses. `devEngines` in `package.json`
+requires Node 26 or later, and pnpm refuses to install with an older one (apps that install the
 package aren't affected). `.node-version` names the Node version CI runs, and the
 `packageManager` field of `package.json` pins the exact pnpm version.
 

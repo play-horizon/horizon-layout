@@ -59,7 +59,7 @@
 		"@sveltejs/vite-plugin-svelte": "^7.3.1",
 		"@testing-library/svelte": "^5.4.2",
 		"@testing-library/user-event": "^14.6.10",
-		"@types/node": "^24.19.2",
+		"@types/node": "^26.6.6",
 		"jsdom": "^31.0.1",
 		"oxfmt": "^0.78.0",
 		"oxlint": "^1.93.0",
@@ -77,7 +77,7 @@
 	"devEngines": {
 		"runtime": {
 			"name": "node",
-			"version": ">=24.2.0",
+			"version": ">=26.0.0",
 			"onFail": "error"
 		}
 	},
